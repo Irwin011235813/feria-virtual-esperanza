@@ -1,79 +1,54 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
-import ProductCatalog from './components/catalog/ProductCatalog';
-import ColonoAdmin from './components/colono/ColonoAdmin';
-import LoginColono from './components/auth/LoginColono';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import Header from './components/layout/Header';
-//import CartButton from './components/cart/CartButton';
-import CartDrawer from './components/cart/CartDrawer';
 import { CartProvider } from './context/CartContext';
-import CartButton from './components/cart/CartButton_ULTRAVERBOSE';
-/**
- * ✅ ESTRUCTURA CORRECTA:
- * CartDrawer se coloca AL FINAL del árbol de componentes
- * para que ningún elemento lo tape
- */
-console.log("🔴 APP.JSX CARGADO - CartButton importado:", CartButton);
+import { useCart } from './context/CartContext';
 
+console.log("🔴🔴🔴 APP.JSX SE ESTÁ CARGANDO 🔴🔴🔴");
+
+function TestButton() {
+  console.log("🟢 TestButton RENDERIZANDO");
+  
+  const { getTotalItems } = useCart();
+  const total = getTotalItems();
+  
+  console.log("🟢 Total items:", total);
+  
+  return (
+    <button
+      onClick={() => {
+        console.log("🔴 CLICK DETECTADO!!!");
+        alert("Click funciona!");
+      }}
+      style={{
+        position: 'fixed',
+        bottom: '24px',
+        right: '24px',
+        width: '100px',
+        height: '100px',
+        backgroundColor: 'red',
+        color: 'white',
+        fontSize: '20px',
+        border: 'none',
+        borderRadius: '50%',
+        cursor: 'pointer',
+        zIndex: 9999
+      }}
+    >
+      TEST
+      <br />
+      {total}
+    </button>
+  );
+}
 
 function App() {
-  const [isCartOpen, setIsCartOpen] = useState(false);
-
-  const openCart = () => {
-    console.log('🔓 Abriendo carrito...');
-    setIsCartOpen(true);
-  };
-
-  const closeCart = () => {
-    console.log('🔒 Cerrando carrito...');
-    setIsCartOpen(false);
-  };
-
-  console.log('📊 Estado del carrito:', isCartOpen ? 'ABIERTO ✅' : 'CERRADO ❌');
-
+  console.log("🟡 App RENDERIZANDO");
+  
   return (
     <CartProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Routes>
-            {/* Ruta pública: Catálogo */}
-            <Route
-              path="/"
-              element={
-                <>
-                  <Header onCartClick={openCart} />
-                  <ProductCatalog />
-                  <CartButton onClick={openCart} />
-                  
-                  {/* ✅ CART DRAWER AL FINAL - IMPORTANTE */}
-                  {/* Esto asegura que esté por encima de todo */}
-                  <CartDrawer 
-                    isOpen={isCartOpen} 
-                    onClose={closeCart} 
-                  />
-                </>
-              }
-            />
-
-            {/* Ruta pública: Login */}
-            <Route path="/login" element={<LoginColono />} />
-
-            {/* Ruta protegida: Admin */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <ColonoAdmin />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* 404 */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
+      <div style={{ padding: '50px', fontSize: '24px' }}>
+        <h1>TEST APP</h1>
+        <p>Si ves esto, React funciona</p>
+        <TestButton />
+      </div>
     </CartProvider>
   );
 }
