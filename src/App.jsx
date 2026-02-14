@@ -5,7 +5,7 @@ import ColonoAdmin from './components/colono/ColonoAdmin';
 import LoginColono from './components/auth/LoginColono';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Header from './components/layout/Header';
-import CartButton from './components/cart/CartButton';
+//import CartButton from './components/cart/CartButton';
 import CartDrawer from './components/cart/CartDrawer';
 import { CartProvider } from './context/CartContext';
 import CartButton from './components/cart/CartButton_ULTRAVERBOSE';
