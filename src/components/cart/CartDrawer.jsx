@@ -1,264 +1,392 @@
 // ============================================
 // CART DRAWER COMPONENT
 // ============================================
-// Panel lateral del carrito con checkout y generación de WhatsApp
+// Panel lateral del carrito con lista de productos, controles y checkout
 
-import React, { useState } from 'react';
-import { useCartStore } from '../../store/cartStore';
-import CartItem from './CartItem';
-import { formatPrice, validateClientInfo } from '../../utils/formatters';
-import { generateMultipleWhatsAppLinks, openMultipleWhatsApp } from '../../utils/whatsapp';
+import { useState } from 'react';
+import { X, Trash2, Plus, Minus, ShoppingCart, Send } from 'lucide-react';
+import { useCart } from '../../context/CartContext';
 
-const CartDrawer = ({ isOpen, onClose }) => {
+const CartDrawer = () => {
   const {
-    items,
-    clienteInfo,
-    setClienteInfo,
-    getTotalPrice,
-    getItemsByColono,
+    cartItems,
+    removeFromCart,
+    incrementQuantity,
+    decrementQuantity,
+    updateQuantity,
+    getTotal,
+    getTotalItems,
     clearCart
-  } = useCartStore();
+  } = useCart();
 
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [errors, setErrors] = useState([]);
+  // Estado para abrir/cerrar el drawer
+  const [isOpen, setIsOpen] = useState(false);
 
-  const totalPrice = getTotalPrice();
-  const isEmpty = items.length === 0;
+  // Estado para datos del cliente
+  const [clienteData, setClienteData] = useState({
+    nombre: '',
+    telefono: '',
+    direccion: ''
+  });
 
-  // Handler para cambios en el formulario de cliente
-  const handleClientInfoChange = (field, value) => {
-    setClienteInfo({
-      ...clienteInfo,
-      [field]: value
+  /**
+   * Abre el drawer
+   */
+  const openDrawer = () => setIsOpen(true);
+
+  /**
+   * Cierra el drawer
+   */
+  const closeDrawer = () => setIsOpen(false);
+
+  /**
+   * Genera el mensaje de WhatsApp con el pedido
+   */
+  const generarMensajeWhatsApp = () => {
+    if (cartItems.length === 0) {
+      alert('El carrito está vacío');
+      return '';
+    }
+
+    let mensaje = '🌱 *PEDIDO - FERIA VIRTUAL ESPERANZA*\n\n';
+    
+    // Datos del cliente
+    if (clienteData.nombre) {
+      mensaje += `👤 *Cliente:* ${clienteData.nombre}\n`;
+    }
+    if (clienteData.telefono) {
+      mensaje += `📱 *Teléfono:* ${clienteData.telefono}\n`;
+    }
+    if (clienteData.direccion) {
+      mensaje += `📍 *Dirección:* ${clienteData.direccion}\n`;
+    }
+    mensaje += '\n';
+
+    // Agrupar productos por colono
+    const productosPorColono = {};
+    cartItems.forEach(item => {
+      if (!productosPorColono[item.colonoId]) {
+        productosPorColono[item.colonoId] = {
+          nombre: item.colonoNombre,
+          telefono: item.colonoTelefono,
+          productos: []
+        };
+      }
+      productosPorColono[item.colonoId].productos.push(item);
     });
+
+    // Construir mensaje por colono
+    Object.values(productosPorColono).forEach((colono, index) => {
+      mensaje += `🌾 *Colono ${index + 1}: ${colono.nombre}*\n`;
+      if (colono.telefono) {
+        mensaje += `📞 ${colono.telefono}\n`;
+      }
+      mensaje += '\n';
+
+      colono.productos.forEach(item => {
+        const precioTotal = (item.precio * item.cantidad) / 100;
+        mensaje += `• ${item.cantidad}x ${item.nombre}\n`;
+        mensaje += `  $${(item.precio / 100).toFixed(2)} c/u = $${precioTotal.toFixed(2)}\n`;
+      });
+      mensaje += '\n';
+    });
+
+    // Total general
+    const total = getTotal() / 100;
+    mensaje += `💰 *TOTAL: $${total.toFixed(2)}*\n\n`;
+    mensaje += '¡Gracias por tu pedido! 🙏';
+
+    return encodeURIComponent(mensaje);
   };
 
-  // Handler para finalizar compra
-  const handleCheckout = () => {
-    // Validar información del cliente
-    const validation = validateClientInfo(clienteInfo);
-    
-    if (!validation.valid) {
-      setErrors(validation.errors);
+  /**
+   * Envía el pedido por WhatsApp
+   */
+  const handleFinalizarPedido = () => {
+    // Validar que haya productos
+    if (cartItems.length === 0) {
+      alert('El carrito está vacío');
       return;
     }
 
-    // Limpiar errores
-    setErrors([]);
+    // Generar mensaje
+    const mensaje = generarMensajeWhatsApp();
 
-    // Agrupar items por colono
-    const itemsByColono = getItemsByColono();
+    // Obtener el primer colono para enviar el mensaje
+    // (podrías mejorar esto para enviar a múltiples colonos)
+    const primerColono = cartItems[0];
+    const whatsappNumber = primerColono.colonoTelefono?.replace(/\D/g, ''); // Limpiar formato
 
-    // Generar links de WhatsApp
-    const whatsappLinks = generateMultipleWhatsAppLinks(itemsByColono, clienteInfo);
+    if (!whatsappNumber) {
+      alert('No se encontró número de WhatsApp del colono');
+      return;
+    }
 
-    // Abrir WhatsApp para cada colono
-    openMultipleWhatsApp(whatsappLinks);
+    // Abrir WhatsApp con el mensaje
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${mensaje}`;
+    window.open(whatsappUrl, '_blank');
 
-    // Limpiar carrito y cerrar drawer
-    setTimeout(() => {
+    // Opcional: Vaciar carrito después de enviar
+    if (confirm('¿Deseas vaciar el carrito?')) {
       clearCart();
-      setShowCheckout(false);
-      onClose();
-    }, 1000);
+      closeDrawer();
+    }
   };
+
+  /**
+   * Maneja cambios en inputs de datos del cliente
+   */
+  const handleClienteChange = (campo, valor) => {
+    setClienteData(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+  };
+
+  const totalItems = getTotalItems();
+  const totalPrecio = getTotal();
 
   return (
     <>
-      {/* Overlay */}
+      {/* Botón flotante para abrir el carrito (móvil) */}
+      {!isOpen && totalItems > 0 && (
+        <button
+          onClick={openDrawer}
+          className="fixed bottom-6 right-6 z-40 bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-2xl transition-all duration-300 active:scale-95 md:hidden"
+          aria-label="Abrir carrito"
+        >
+          <ShoppingCart className="w-6 h-6" />
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+            {totalItems}
+          </span>
+        </button>
+      )}
+
+      {/* Overlay oscuro */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
-          onClick={onClose}
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+          onClick={closeDrawer}
         />
       )}
 
-      {/* Drawer */}
+      {/* Drawer del carrito */}
       <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">
-            🛒 Mi Carrito
-          </h2>
+        {/* Header del drawer */}
+        <div className="bg-green-600 text-white p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <ShoppingCart className="w-6 h-6" />
+            <div>
+              <h2 className="text-lg font-bold">Mi Carrito</h2>
+              <p className="text-sm text-green-100">
+                {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
+              </p>
+            </div>
+          </div>
           <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            onClick={closeDrawer}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Cerrar carrito"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Contenido */}
-        <div className="flex flex-col h-[calc(100%-4rem)]">
-          {isEmpty ? (
-            /* Carrito vacío */
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <div className="text-6xl mb-4">🛒</div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+        {/* Contenido del carrito */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {cartItems.length === 0 ? (
+            // Carrito vacío
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <ShoppingCart className="w-20 h-20 text-gray-300 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">
                 Tu carrito está vacío
               </h3>
-              <p className="text-gray-500 mb-6">
-                Agrega productos para comenzar tu pedido
+              <p className="text-gray-500 mb-4">
+                Agrega productos desde el catálogo
               </p>
               <button
-                onClick={onClose}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                onClick={closeDrawer}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
               >
-                Explorar productos
+                Ver productos
               </button>
             </div>
           ) : (
-            <>
-              {/* Lista de items */}
-              <div className="flex-1 overflow-y-auto p-4">
-                {!showCheckout ? (
-                  /* Vista de items */
-                  <>
-                    {items.map((item) => (
-                      <CartItem key={item.id} item={item} />
-                    ))}
-                  </>
-                ) : (
-                  /* Vista de checkout */
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      📋 Datos de entrega
-                    </h3>
-
-                    {/* Formulario de cliente */}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Nombre completo *
-                        </label>
-                        <input
-                          type="text"
-                          value={clienteInfo.nombre}
-                          onChange={(e) => handleClientInfoChange('nombre', e.target.value)}
-                          placeholder="Juan Pérez"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Teléfono *
-                        </label>
-                        <input
-                          type="tel"
-                          value={clienteInfo.telefono}
-                          onChange={(e) => handleClientInfoChange('telefono', e.target.value)}
-                          placeholder="+54 9 3756 123456"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Ubicación / Dirección *
-                        </label>
-                        <textarea
-                          value={clienteInfo.ubicacion}
-                          onChange={(e) => handleClientInfoChange('ubicacion', e.target.value)}
-                          placeholder="Barrio Centro, Calle 3, Casa 15"
-                          rows={3}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Errores de validación */}
-                    {errors.length > 0 && (
-                      <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm font-semibold text-red-800 mb-1">
-                          ⚠️ Por favor completa:
-                        </p>
-                        <ul className="text-sm text-red-600 list-disc list-inside">
-                          {errors.map((error, index) => (
-                            <li key={index}>{error}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Resumen del pedido */}
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-2">
-                        Resumen del pedido
-                      </h4>
-                      <div className="space-y-1 text-sm text-gray-600">
-                        {items.map((item) => (
-                          <div key={item.id} className="flex justify-between">
-                            <span>{item.nombre} x{item.cantidad}</span>
-                            <span>{formatPrice(item.precio * item.cantidad)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Botón volver */}
-                    <button
-                      onClick={() => setShowCheckout(false)}
-                      className="mt-4 w-full py-2 text-blue-600 hover:text-blue-700 font-semibold"
-                    >
-                      ← Volver al carrito
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer con total y acciones */}
-              <div className="border-t border-gray-200 p-4 bg-white">
-                {/* Total */}
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-lg font-semibold text-gray-700">
-                    Total:
-                  </span>
-                  <span className="text-2xl font-bold text-green-600">
-                    {formatPrice(totalPrice)}
-                  </span>
-                </div>
-
-                {/* Botones de acción */}
-                {!showCheckout ? (
-                  <button
-                    onClick={() => setShowCheckout(true)}
-                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors mb-2"
-                  >
-                    Continuar con el pedido →
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleCheckout}
-                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors mb-2 flex items-center justify-center gap-2"
-                  >
-                    <span>📱</span>
-                    Enviar pedido por WhatsApp
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    if (confirm('¿Estás seguro de vaciar el carrito?')) {
-                      clearCart();
-                      setShowCheckout(false);
-                    }
-                  }}
-                  className="w-full py-2 text-red-600 hover:text-red-700 font-semibold transition-colors"
+            // Lista de productos
+            <div className="space-y-4">
+              {cartItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-gray-50 rounded-lg p-3 border border-gray-200"
                 >
-                  Vaciar carrito
-                </button>
-              </div>
-            </>
+                  <div className="flex gap-3">
+                    {/* Imagen del producto */}
+                    <div className="w-20 h-20 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-200">
+                      {item.imagen ? (
+                        <img
+                          src={item.imagen}
+                          alt={item.nombre}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ShoppingCart className="w-8 h-8 text-gray-300" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info del producto */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-800 text-sm truncate mb-1">
+                        {item.nombre}
+                      </h3>
+                      <p className="text-xs text-gray-500 mb-2">
+                        🌱 {item.colonoNombre}
+                      </p>
+
+                      {/* Precio unitario */}
+                      <p className="text-green-600 font-bold text-sm mb-2">
+                        ${(item.precio / 100).toFixed(2)} c/u
+                      </p>
+
+                      {/* Controles de cantidad */}
+                      <div className="flex items-center gap-2">
+                        {/* Botón decrementar */}
+                        <button
+                          onClick={() => decrementQuantity(item.id)}
+                          className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors active:scale-95"
+                          aria-label="Decrementar cantidad"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+
+                        {/* Cantidad */}
+                        <input
+                          type="number"
+                          min="1"
+                          max={item.stock}
+                          value={item.cantidad}
+                          onChange={(e) => {
+                            const newValue = parseInt(e.target.value) || 1;
+                            updateQuantity(item.id, newValue);
+                          }}
+                          className="w-14 text-center border border-gray-300 rounded-lg py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+
+                        {/* Botón incrementar */}
+                        <button
+                          onClick={() => incrementQuantity(item.id)}
+                          disabled={item.cantidad >= item.stock}
+                          className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label="Incrementar cantidad"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+
+                        {/* Botón eliminar */}
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="ml-auto w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors active:scale-95"
+                          aria-label="Eliminar producto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Subtotal */}
+                      <p className="text-xs text-gray-600 mt-2">
+                        Subtotal: <span className="font-semibold">${((item.precio * item.cantidad) / 100).toFixed(2)}</span>
+                      </p>
+
+                      {/* Advertencia de stock */}
+                      {item.cantidad >= item.stock && (
+                        <p className="text-xs text-orange-600 mt-1">
+                          ⚠️ Stock máximo alcanzado
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
+
+        {/* Footer con total y botón de checkout */}
+        {cartItems.length > 0 && (
+          <div className="border-t border-gray-200 p-4 space-y-4">
+            {/* Datos del cliente (opcional) */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-gray-700 text-sm">
+                Tus datos (opcional)
+              </h3>
+              <input
+                type="text"
+                placeholder="Tu nombre"
+                value={clienteData.nombre}
+                onChange={(e) => handleClienteChange('nombre', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <input
+                type="tel"
+                placeholder="Tu teléfono"
+                value={clienteData.telefono}
+                onChange={(e) => handleClienteChange('telefono', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <input
+                type="text"
+                placeholder="Dirección de entrega"
+                value={clienteData.direccion}
+                onChange={(e) => handleClienteChange('direccion', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            {/* Total */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-gray-600">Subtotal:</span>
+                <span className="font-semibold">${(totalPrecio / 100).toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-gray-300 pt-2">
+                <span className="text-lg font-bold text-gray-800">Total:</span>
+                <span className="text-2xl font-bold text-green-600">
+                  ${(totalPrecio / 100).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="space-y-2">
+              {/* Botón Finalizar Pedido */}
+              <button
+                onClick={handleFinalizarPedido}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors active:scale-98 shadow-md"
+              >
+                <Send className="w-5 h-5" />
+                Finalizar Pedido por WhatsApp
+              </button>
+
+              {/* Botón Vaciar Carrito */}
+              <button
+                onClick={() => {
+                  if (confirm('¿Estás seguro de vaciar el carrito?')) {
+                    clearCart();
+                  }
+                }}
+                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Vaciar carrito
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
