@@ -14,6 +14,9 @@ import CartButton from './components/cart/CartButton_ULTRAVERBOSE';
  * CartDrawer se coloca AL FINAL del árbol de componentes
  * para que ningún elemento lo tape
  */
+console.log("🔴 APP.JSX CARGADO - CartButton importado:", CartButton);
+
+function App() {
 function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
