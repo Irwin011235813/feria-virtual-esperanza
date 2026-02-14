@@ -7,32 +7,26 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Header from './components/layout/Header';
 import CartButton from './components/cart/CartButton';
 import CartDrawer from './components/cart/CartDrawer';
-
-// ✅ IMPORTAR EL CART PROVIDER
 import { CartProvider } from './context/CartContext';
 
 /**
- * Componente Principal de la Aplicación
- * ✅ Estado centralizado del carrito (isCartOpen)
- * ✅ Props pasadas correctamente a todos los componentes
+ * ✅ ESTRUCTURA CORRECTA:
+ * CartDrawer se coloca AL FINAL del árbol de componentes
+ * para que ningún elemento lo tape
  */
 function App() {
-  // ✅ ESTADO PARA ABRIR/CERRAR EL CART DRAWER
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // ✅ FUNCIÓN PARA ABRIR EL CARRITO
   const openCart = () => {
     console.log('🔓 Abriendo carrito...');
     setIsCartOpen(true);
   };
 
-  // ✅ FUNCIÓN PARA CERRAR EL CARRITO
   const closeCart = () => {
     console.log('🔒 Cerrando carrito...');
     setIsCartOpen(false);
   };
 
-  // ✅ CONSOLE LOG PARA VER CAMBIOS DE ESTADO (debugging)
   console.log('📊 Estado del carrito:', isCartOpen ? 'ABIERTO ✅' : 'CERRADO ❌');
 
   return (
@@ -40,32 +34,29 @@ function App() {
       <Router>
         <div className="min-h-screen bg-gray-50">
           <Routes>
-            {/* Ruta pública: Catálogo de productos para clientes */}
+            {/* Ruta pública: Catálogo */}
             <Route
               path="/"
               element={
                 <>
-                  {/* ✅ Header recibe openCart para abrir el drawer */}
                   <Header onCartClick={openCart} />
-                  
                   <ProductCatalog />
+                  <CartButton onClick={openCart} />
                   
-                  {/* ✅ CartDrawer recibe isOpen y onClose */}
+                  {/* ✅ CART DRAWER AL FINAL - IMPORTANTE */}
+                  {/* Esto asegura que esté por encima de todo */}
                   <CartDrawer 
                     isOpen={isCartOpen} 
                     onClose={closeCart} 
                   />
-                  
-                  {/* ✅ CartButton recibe onClick para abrir el drawer */}
-                  <CartButton onClick={openCart} />
                 </>
               }
             />
 
-            {/* Ruta pública: Login/Registro de colonos */}
+            {/* Ruta pública: Login */}
             <Route path="/login" element={<LoginColono />} />
 
-            {/* Ruta protegida: Panel de administración para colonos */}
+            {/* Ruta protegida: Admin */}
             <Route
               path="/admin"
               element={
@@ -75,7 +66,7 @@ function App() {
               }
             />
 
-            {/* Ruta 404: Redirigir al inicio */}
+            {/* 404 */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

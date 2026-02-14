@@ -1,17 +1,16 @@
 // ============================================
-// CART DRAWER COMPONENT (FIXED)
+// CART DRAWER COMPONENT (FIXED - VISUAL)
 // ============================================
-// Panel lateral del carrito CONTROLADO POR PROPS
+// Panel lateral con z-index máximo y visibilidad forzada
 
 import { useState } from 'react';
 import { X, Trash2, Plus, Minus, ShoppingCart, Send } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 
-/**
- * ✅ RECIBE isOpen Y onClose COMO PROPS
- * ❌ NO tiene estado interno isOpen (esto causaba el conflicto)
- */
 const CartDrawer = ({ isOpen, onClose }) => {
+  // ✅ CONSOLE LOG CRÍTICO PARA DEBUGGING
+  console.log("🎨 RENDERIZANDO DRAWER - isOpen:", isOpen);
+  
   const {
     cartItems,
     removeFromCart,
@@ -30,9 +29,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
     direccion: ''
   });
 
-  // ✅ LOG PARA DEBUGGING
-  console.log('🛒 CartDrawer - isOpen:', isOpen);
-
   /**
    * Genera el mensaje de WhatsApp con el pedido
    */
@@ -44,7 +40,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
     let mensaje = '🌱 *PEDIDO - FERIA VIRTUAL ESPERANZA*\n\n';
     
-    // Datos del cliente
     if (clienteData.nombre) {
       mensaje += `👤 *Cliente:* ${clienteData.nombre}\n`;
     }
@@ -56,7 +51,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
     }
     mensaje += '\n';
 
-    // Agrupar productos por colono
     const productosPorColono = {};
     cartItems.forEach(item => {
       if (!productosPorColono[item.colonoId]) {
@@ -69,7 +63,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
       productosPorColono[item.colonoId].productos.push(item);
     });
 
-    // Construir mensaje por colono
     Object.values(productosPorColono).forEach((colono, index) => {
       mensaje += `🌾 *Colono ${index + 1}: ${colono.nombre}*\n`;
       if (colono.telefono) {
@@ -85,7 +78,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
       mensaje += '\n';
     });
 
-    // Total general
     const total = getTotal() / 100;
     mensaje += `💰 *TOTAL: $${total.toFixed(2)}*\n\n`;
     mensaje += '¡Gracias por tu pedido! 🙏';
@@ -93,9 +85,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
     return encodeURIComponent(mensaje);
   };
 
-  /**
-   * Envía el pedido por WhatsApp
-   */
   const handleFinalizarPedido = () => {
     if (cartItems.length === 0) {
       alert('El carrito está vacío');
@@ -116,13 +105,10 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
     if (confirm('¿Deseas vaciar el carrito?')) {
       clearCart();
-      onClose(); // ✅ Usar onClose prop para cerrar
+      onClose();
     }
   };
 
-  /**
-   * Maneja cambios en inputs de datos del cliente
-   */
   const handleClienteChange = (campo, valor) => {
     setClienteData(prev => ({
       ...prev,
@@ -135,22 +121,38 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
   return (
     <>
-      {/* ✅ Overlay oscuro - SE MUESTRA SOLO SI isOpen ES TRUE */}
+      {/* ✅ OVERLAY CON Z-INDEX ALTO */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-          onClick={onClose} // ✅ Usar onClose prop
+          className="fixed inset-0 bg-black/50 z-[9998] transition-opacity duration-300"
+          onClick={onClose}
+          style={{ display: isOpen ? 'block' : 'none' }} // ✅ Forzar display
         />
       )}
 
-      {/* ✅ Drawer del carrito - USA isOpen PROP PARA LA ANIMACIÓN */}
+      {/* ✅ DRAWER CON Z-INDEX MÁXIMO Y VISIBILIDAD FORZADA */}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className={`
+          fixed top-0 right-0 h-full w-full md:w-96 
+          bg-white shadow-2xl 
+          z-[9999]
+          transform transition-all duration-300 ease-in-out
+          flex flex-col
+          ${isOpen 
+            ? 'translate-x-0 opacity-100 visible' 
+            : 'translate-x-full opacity-0 invisible'
+          }
+        `}
+        style={{
+          // ✅ ESTILOS INLINE PARA FORZAR VISIBILIDAD
+          zIndex: 9999,
+          visibility: isOpen ? 'visible' : 'hidden',
+          opacity: isOpen ? 1 : 0,
+          transform: isOpen ? 'translateX(0)' : 'translateX(100%)'
+        }}
       >
         {/* Header del drawer */}
-        <div className="bg-green-600 text-white p-4 flex items-center justify-between">
+        <div className="bg-green-600 text-white p-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <ShoppingCart className="w-6 h-6" />
             <div>
@@ -160,7 +162,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
               </p>
             </div>
           </div>
-          {/* ✅ Botón cerrar usa onClose prop */}
           <button
             onClick={onClose}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -170,7 +171,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Contenido del carrito */}
+        {/* Contenido scrolleable */}
         <div className="flex-1 overflow-y-auto p-4">
           {cartItems.length === 0 ? (
             // Carrito vacío
@@ -183,7 +184,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                 Agrega productos desde el catálogo
               </p>
               <button
-                onClick={onClose} // ✅ Usar onClose prop
+                onClick={onClose}
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
               >
                 Ver productos
@@ -198,7 +199,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                   className="bg-gray-50 rounded-lg p-3 border border-gray-200"
                 >
                   <div className="flex gap-3">
-                    {/* Imagen del producto */}
+                    {/* Imagen */}
                     <div className="w-20 h-20 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-200">
                       {item.imagen ? (
                         <img
@@ -213,7 +214,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                       )}
                     </div>
 
-                    {/* Info del producto */}
+                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-800 text-sm truncate mb-1">
                         {item.nombre}
@@ -221,17 +222,15 @@ const CartDrawer = ({ isOpen, onClose }) => {
                       <p className="text-xs text-gray-500 mb-2">
                         🌱 {item.colonoNombre}
                       </p>
-
                       <p className="text-green-600 font-bold text-sm mb-2">
                         ${(item.precio / 100).toFixed(2)} c/u
                       </p>
 
-                      {/* Controles de cantidad */}
+                      {/* Controles */}
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => decrementQuantity(item.id)}
                           className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors active:scale-95"
-                          aria-label="Decrementar cantidad"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
@@ -251,16 +250,14 @@ const CartDrawer = ({ isOpen, onClose }) => {
                         <button
                           onClick={() => incrementQuantity(item.id)}
                           disabled={item.cantidad >= item.stock}
-                          className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                          aria-label="Incrementar cantidad"
+                          className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors active:scale-95 disabled:opacity-50"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
 
                         <button
                           onClick={() => removeFromCart(item.id)}
-                          className="ml-auto w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors active:scale-95"
-                          aria-label="Eliminar producto"
+                          className="ml-auto w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -283,9 +280,9 @@ const CartDrawer = ({ isOpen, onClose }) => {
           )}
         </div>
 
-        {/* Footer con total y botón de checkout */}
+        {/* Footer */}
         {cartItems.length > 0 && (
-          <div className="border-t border-gray-200 p-4 space-y-4">
+          <div className="border-t border-gray-200 p-4 space-y-4 flex-shrink-0">
             {/* Datos del cliente */}
             <div className="space-y-2">
               <h3 className="font-semibold text-gray-700 text-sm">
