@@ -1,13 +1,17 @@
 // ============================================
-// CART DRAWER COMPONENT
+// CART DRAWER COMPONENT (FIXED)
 // ============================================
-// Panel lateral del carrito con lista de productos, controles y checkout
+// Panel lateral del carrito CONTROLADO POR PROPS
 
 import { useState } from 'react';
 import { X, Trash2, Plus, Minus, ShoppingCart, Send } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 
-const CartDrawer = () => {
+/**
+ * ✅ RECIBE isOpen Y onClose COMO PROPS
+ * ❌ NO tiene estado interno isOpen (esto causaba el conflicto)
+ */
+const CartDrawer = ({ isOpen, onClose }) => {
   const {
     cartItems,
     removeFromCart,
@@ -19,9 +23,6 @@ const CartDrawer = () => {
     clearCart
   } = useCart();
 
-  // Estado para abrir/cerrar el drawer
-  const [isOpen, setIsOpen] = useState(false);
-
   // Estado para datos del cliente
   const [clienteData, setClienteData] = useState({
     nombre: '',
@@ -29,15 +30,8 @@ const CartDrawer = () => {
     direccion: ''
   });
 
-  /**
-   * Abre el drawer
-   */
-  const openDrawer = () => setIsOpen(true);
-
-  /**
-   * Cierra el drawer
-   */
-  const closeDrawer = () => setIsOpen(false);
+  // ✅ LOG PARA DEBUGGING
+  console.log('🛒 CartDrawer - isOpen:', isOpen);
 
   /**
    * Genera el mensaje de WhatsApp con el pedido
@@ -103,33 +97,26 @@ const CartDrawer = () => {
    * Envía el pedido por WhatsApp
    */
   const handleFinalizarPedido = () => {
-    // Validar que haya productos
     if (cartItems.length === 0) {
       alert('El carrito está vacío');
       return;
     }
 
-    // Generar mensaje
     const mensaje = generarMensajeWhatsApp();
-
-    // Obtener el primer colono para enviar el mensaje
-    // (podrías mejorar esto para enviar a múltiples colonos)
     const primerColono = cartItems[0];
-    const whatsappNumber = primerColono.colonoTelefono?.replace(/\D/g, ''); // Limpiar formato
+    const whatsappNumber = primerColono.colonoTelefono?.replace(/\D/g, '');
 
     if (!whatsappNumber) {
       alert('No se encontró número de WhatsApp del colono');
       return;
     }
 
-    // Abrir WhatsApp con el mensaje
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${mensaje}`;
     window.open(whatsappUrl, '_blank');
 
-    // Opcional: Vaciar carrito después de enviar
     if (confirm('¿Deseas vaciar el carrito?')) {
       clearCart();
-      closeDrawer();
+      onClose(); // ✅ Usar onClose prop para cerrar
     }
   };
 
@@ -148,29 +135,15 @@ const CartDrawer = () => {
 
   return (
     <>
-      {/* Botón flotante para abrir el carrito (móvil) */}
-      {!isOpen && totalItems > 0 && (
-        <button
-          onClick={openDrawer}
-          className="fixed bottom-6 right-6 z-40 bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-2xl transition-all duration-300 active:scale-95 md:hidden"
-          aria-label="Abrir carrito"
-        >
-          <ShoppingCart className="w-6 h-6" />
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-            {totalItems}
-          </span>
-        </button>
-      )}
-
-      {/* Overlay oscuro */}
+      {/* ✅ Overlay oscuro - SE MUESTRA SOLO SI isOpen ES TRUE */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-          onClick={closeDrawer}
+          onClick={onClose} // ✅ Usar onClose prop
         />
       )}
 
-      {/* Drawer del carrito */}
+      {/* ✅ Drawer del carrito - USA isOpen PROP PARA LA ANIMACIÓN */}
       <div
         className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
@@ -187,8 +160,9 @@ const CartDrawer = () => {
               </p>
             </div>
           </div>
+          {/* ✅ Botón cerrar usa onClose prop */}
           <button
-            onClick={closeDrawer}
+            onClick={onClose}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Cerrar carrito"
           >
@@ -209,7 +183,7 @@ const CartDrawer = () => {
                 Agrega productos desde el catálogo
               </p>
               <button
-                onClick={closeDrawer}
+                onClick={onClose} // ✅ Usar onClose prop
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
               >
                 Ver productos
@@ -248,14 +222,12 @@ const CartDrawer = () => {
                         🌱 {item.colonoNombre}
                       </p>
 
-                      {/* Precio unitario */}
                       <p className="text-green-600 font-bold text-sm mb-2">
                         ${(item.precio / 100).toFixed(2)} c/u
                       </p>
 
                       {/* Controles de cantidad */}
                       <div className="flex items-center gap-2">
-                        {/* Botón decrementar */}
                         <button
                           onClick={() => decrementQuantity(item.id)}
                           className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors active:scale-95"
@@ -264,7 +236,6 @@ const CartDrawer = () => {
                           <Minus className="w-4 h-4" />
                         </button>
 
-                        {/* Cantidad */}
                         <input
                           type="number"
                           min="1"
@@ -277,7 +248,6 @@ const CartDrawer = () => {
                           className="w-14 text-center border border-gray-300 rounded-lg py-1 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
 
-                        {/* Botón incrementar */}
                         <button
                           onClick={() => incrementQuantity(item.id)}
                           disabled={item.cantidad >= item.stock}
@@ -287,7 +257,6 @@ const CartDrawer = () => {
                           <Plus className="w-4 h-4" />
                         </button>
 
-                        {/* Botón eliminar */}
                         <button
                           onClick={() => removeFromCart(item.id)}
                           className="ml-auto w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors active:scale-95"
@@ -297,12 +266,10 @@ const CartDrawer = () => {
                         </button>
                       </div>
 
-                      {/* Subtotal */}
                       <p className="text-xs text-gray-600 mt-2">
                         Subtotal: <span className="font-semibold">${((item.precio * item.cantidad) / 100).toFixed(2)}</span>
                       </p>
 
-                      {/* Advertencia de stock */}
                       {item.cantidad >= item.stock && (
                         <p className="text-xs text-orange-600 mt-1">
                           ⚠️ Stock máximo alcanzado
@@ -319,7 +286,7 @@ const CartDrawer = () => {
         {/* Footer con total y botón de checkout */}
         {cartItems.length > 0 && (
           <div className="border-t border-gray-200 p-4 space-y-4">
-            {/* Datos del cliente (opcional) */}
+            {/* Datos del cliente */}
             <div className="space-y-2">
               <h3 className="font-semibold text-gray-700 text-sm">
                 Tus datos (opcional)
@@ -361,9 +328,8 @@ const CartDrawer = () => {
               </div>
             </div>
 
-            {/* Botones de acción */}
+            {/* Botones */}
             <div className="space-y-2">
-              {/* Botón Finalizar Pedido */}
               <button
                 onClick={handleFinalizarPedido}
                 className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors active:scale-98 shadow-md"
@@ -372,7 +338,6 @@ const CartDrawer = () => {
                 Finalizar Pedido por WhatsApp
               </button>
 
-              {/* Botón Vaciar Carrito */}
               <button
                 onClick={() => {
                   if (confirm('¿Estás seguro de vaciar el carrito?')) {

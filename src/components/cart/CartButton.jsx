@@ -1,28 +1,41 @@
 // ============================================
-// CART BUTTON COMPONENT
+// CART BUTTON COMPONENT (FIXED)
 // ============================================
-// Botón flotante del carrito para mobile
+// Botón flotante del carrito CONTROLADO POR PROPS
 
 import { ShoppingCart } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { useState } from 'react';
 
 /**
+ * ✅ RECIBE onClick COMO PROP (con llaves)
  * Botón flotante que abre el CartDrawer
- * Solo visible en mobile cuando hay productos en el carrito
  */
 const CartButton = ({ onClick }) => {
   const { getTotalItems } = useCart();
   const totalItems = getTotalItems();
+
+  // ✅ LOG PARA DEBUGGING
+  console.log('🔘 CartButton - onClick recibido:', typeof onClick);
+  console.log('🔘 CartButton - totalItems:', totalItems);
 
   // No mostrar si no hay productos
   if (totalItems === 0) {
     return null;
   }
 
+  // ✅ HANDLER CON LOG PARA VER SI SE EJECUTA
+  const handleClick = () => {
+    console.log('👆 CartButton - Click detectado!');
+    if (onClick) {
+      onClick(); // ✅ Ejecutar la función onClick prop
+    } else {
+      console.error('❌ CartButton - onClick no está definido!');
+    }
+  };
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick} // ✅ Usar el handler con log
       className="fixed bottom-6 right-6 z-40 bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-2xl transition-all duration-300 active:scale-95 md:hidden"
       aria-label="Ver carrito"
     >

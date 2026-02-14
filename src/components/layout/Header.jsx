@@ -1,19 +1,35 @@
 // ============================================
-// HEADER COMPONENT (CON CART CONTEXT)
+// HEADER COMPONENT (FIXED)
 // ============================================
-// Header que muestra el contador del carrito en tiempo real
+// Header con contador del carrito CONTROLADO POR PROPS
 
 import { ShoppingCart, Store } from 'lucide-react';
 import { Link } from 'react-router-dom';
-// ✅ IMPORTAR EL HOOK DEL CARRITO
 import { useCart } from '../../context/CartContext';
 
-const Header = () => {
-  // ✅ OBTENER DATOS DEL CART CONTEXT
+/**
+ * ✅ RECIBE onCartClick COMO PROP
+ * Header que muestra el contador del carrito en tiempo real
+ */
+const Header = ({ onCartClick }) => {
   const { getTotalItems, getTotal } = useCart();
 
   const totalItems = getTotalItems();
   const totalPrecio = getTotal();
+
+  // ✅ LOG PARA DEBUGGING
+  console.log('📋 Header - onCartClick recibido:', typeof onCartClick);
+  console.log('📋 Header - totalItems:', totalItems);
+
+  // ✅ HANDLER CON LOG PARA VER SI SE EJECUTA
+  const handleCartClick = () => {
+    console.log('👆 Header - Click en carrito detectado!');
+    if (onCartClick) {
+      onCartClick(); // ✅ Ejecutar la función onCartClick prop
+    } else {
+      console.error('❌ Header - onCartClick no está definido!');
+    }
+  };
 
   return (
     <header className="bg-white shadow-md sticky top-0 z-40">
@@ -34,7 +50,7 @@ const Header = () => {
             </div>
           </Link>
 
-          {/* Contador del carrito - SE ACTUALIZA EN TIEMPO REAL ✅ */}
+          {/* Contador del carrito - CLICKEABLE ✅ */}
           <div className="flex items-center gap-4">
             {/* Info del carrito (desktop) */}
             {totalItems > 0 && (
@@ -48,14 +64,15 @@ const Header = () => {
               </div>
             )}
 
-            {/* Botón del carrito con badge */}
+            {/* ✅ Botón del carrito CON onClick */}
             <button
+              onClick={handleCartClick} // ✅ Usar el handler con log
               className="relative p-3 bg-green-600 hover:bg-green-700 rounded-full transition-colors shadow-md hover:shadow-lg active:scale-95"
               aria-label="Carrito de compras"
             >
               <ShoppingCart className="w-6 h-6 text-white" />
               
-              {/* Badge con cantidad - SE ACTUALIZA INSTANTÁNEAMENTE ✅ */}
+              {/* Badge con cantidad */}
               {totalItems > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-bounce">
                   {totalItems > 99 ? '99+' : totalItems}
