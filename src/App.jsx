@@ -16,7 +16,7 @@ import CartButton from './components/cart/CartButton_ULTRAVERBOSE';
  */
 console.log("🔴 APP.JSX CARGADO - CartButton importado:", CartButton);
 
-function App() {
+
 function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
