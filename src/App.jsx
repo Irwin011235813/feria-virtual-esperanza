@@ -8,7 +8,7 @@ import Header from './components/layout/Header';
 import CartButton from './components/cart/CartButton';
 import CartDrawer from './components/cart/CartDrawer';
 import { CartProvider } from './context/CartContext';
-
+import CartButton from './components/cart/CartButton_ULTRAVERBOSE';
 /**
  * ✅ ESTRUCTURA CORRECTA:
  * CartDrawer se coloca AL FINAL del árbol de componentes
