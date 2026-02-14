@@ -1,3 +1,4 @@
+import { useState } from 'react'; // ✅ Importamos useState para manejar el abrir/cerrar
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProductCatalog from './components/catalog/ProductCatalog';
 import ColonoAdmin from './components/colono/ColonoAdmin';
@@ -6,38 +7,37 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Header from './components/layout/Header';
 import CartButton from './components/cart/CartButton';
 import CartDrawer from './components/cart/CartDrawer';
-
-// ✅ IMPORTAR EL CART PROVIDER
 import { CartProvider } from './context/CartContext';
 
-/**
- * Componente Principal de la Aplicación
- * ✅ Envuelto con CartProvider para dar acceso global al carrito
- */
 function App() {
+  // ✅ CREAMOS EL ESTADO PARA EL CARRITO
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
   return (
-    // ✅ ENVOLVER TODO CON CartProvider
     <CartProvider>
       <Router>
         <div className="min-h-screen bg-gray-50">
           <Routes>
-            {/* Ruta pública: Catálogo de productos para clientes */}
             <Route
               path="/"
               element={
                 <>
-                  <Header />
+                  {/* ✅ PASAMOS LA FUNCIÓN PARA ABRIR DESDE EL HEADER SI ES NECESARIO */}
+                  <Header onOpenCart={() => setIsCartOpen(true)} />
+                  
                   <ProductCatalog />
-                  <CartDrawer />
-                  <CartButton />
+                  
+                  {/* ✅ CONECTAMOS EL PANEL: Sabe si está abierto y cómo cerrarse */}
+                  <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+                  
+                  {/* ✅ CONECTAMOS EL BOTÓN: Sabe que al hacer clic debe abrir el panel */}
+                  <CartButton onClick={() => setIsCartOpen(true)} />
                 </>
               }
             />
 
-            {/* Ruta pública: Login/Registro de colonos */}
             <Route path="/login" element={<LoginColono />} />
 
-            {/* Ruta protegida: Panel de administración para colonos */}
             <Route
               path="/admin"
               element={
@@ -47,7 +47,6 @@ function App() {
               }
             />
 
-            {/* Ruta 404: Redirigir al inicio */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
