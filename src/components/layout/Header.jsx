@@ -1,11 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 
 const Header = () => {
-  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
