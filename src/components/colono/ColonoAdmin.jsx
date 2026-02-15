@@ -25,6 +25,23 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     }
   }, [location.search, setIsModalOpen]);
 
+  // 2. 🎯 CIERRE CON TECLA ESC
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape' && isModalOpen) {
+        handleCerrarForm(false);
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isModalOpen]);
+
   useEffect(() => {
     cargarColonoAutenticado();
   }, []);
@@ -86,6 +103,14 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     if (huboCambios) cargarProductosColono();
   };
 
+  // 3. 🖱️ MANEJADOR PARA CLIC EN EL OVERLAY
+  const handleOverlayClick = (e) => {
+    // Solo cierra si se hace clic directamente en el overlay (no en el contenido)
+    if (e.target === e.currentTarget) {
+      handleCerrarForm(false);
+    }
+  };
+
   if (loadingColono) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -110,18 +135,55 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         ) : (
           <div className="grid gap-4">
             {productos.map((producto) => (
-              <div key={producto.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex justify-between items-center transition-all hover:shadow-md">
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg">{producto.nombre}</h3>
-                  <p className="text-green-600 font-bold">${(producto.precio / 100).toFixed(2)}</p>
+              <div key={producto.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex items-center justify-between transition-all hover:shadow-md">
+                
+                {/* 4. 📸 IMAGEN DEL PRODUCTO */}
+                <div className="flex items-center gap-4 flex-1">
+                  {producto.imagen ? (
+                    <img 
+                      src={producto.imagen} 
+                      alt={producto.nombre}
+                      className="w-16 h-16 object-cover rounded-lg border-2 border-green-100"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-gray-200">
+                      <Package className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-lg">{producto.nombre}</h3>
+                    <p className="text-green-600 font-bold">${(producto.precio / 100).toFixed(2)}</p>
+                    {producto.categoria && (
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full mt-1 inline-block">
+                        {producto.categoria}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* CONTROLES DE STOCK Y EDICIÓN */}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
-                    <button onClick={() => actualizarStock(producto.id, -1)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"><Minus size={18}/></button>
+                    <button 
+                      onClick={() => actualizarStock(producto.id, -1)} 
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                    >
+                      <Minus size={18}/>
+                    </button>
                     <span className="w-12 text-center font-bold text-xl">{producto.stock}</span>
-                    <button onClick={() => actualizarStock(producto.id, 1)} className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"><Plus size={18}/></button>
+                    <button 
+                      onClick={() => actualizarStock(producto.id, 1)} 
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                    >
+                      <Plus size={18}/>
+                    </button>
                   </div>
-                  <button onClick={() => handleEditarProducto(producto)} className="p-2 text-gray-400 hover:text-green-600 transition-colors" title="Editar">
+                  <button 
+                    onClick={() => handleEditarProducto(producto)} 
+                    className="p-2 text-gray-400 hover:text-green-600 transition-colors" 
+                    title="Editar"
+                  >
                     <Edit2 size={20}/>
                   </button>
                 </div>
@@ -140,10 +202,16 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         <Plus size={32} strokeWidth={3} />
       </button>
 
-      {/* 🖼️ MODAL DE CARGA CON DESENFOQUE DE FONDO */}
+      {/* 🖼️ MODAL DE CARGA CON CIERRE MEJORADO */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl relative my-auto animate-in zoom-in duration-200">
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+          onClick={handleOverlayClick}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl relative my-auto animate-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Botón X para cerrar rápido */}
             <button 
