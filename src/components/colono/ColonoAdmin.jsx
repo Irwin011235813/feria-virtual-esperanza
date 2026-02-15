@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, updateProducto } from "../../services/firebase";
-import { obtenerColonoActual, cerrarSesionColono } from '../../services/auth';
-import { useNavigate } from 'react-router-dom';
+import { obtenerColonoActual } from '../../services/auth';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Package, Plus, Minus, Edit2, PlusCircle, Loader } from 'lucide-react';
 import ProductForm from './ProductForm';
 
-const ColonoAdmin = () => {
+const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [colonoSeleccionado, setColonoSeleccionado] = useState(null);
   const [loadingColono, setLoadingColono] = useState(true);
@@ -15,10 +16,19 @@ const ColonoAdmin = () => {
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
 
-  const [showForm, setShowForm] = useState(false);
   const [productoAEditar, setProductoAEditar] = useState(null);
-
   const [updatingStock, setUpdatingStock] = useState({});
+
+  // 🔥 Detectar ?action=new
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const action = params.get("action");
+
+    if (action === "new") {
+      setProductoAEditar(null);
+      setIsModalOpen(true);
+    }
+  }, [location.search, setIsModalOpen]);
 
   useEffect(() => {
     cargarColonoAutenticado();
@@ -96,17 +106,17 @@ const ColonoAdmin = () => {
 
   const handleNuevoProducto = () => {
     setProductoAEditar(null);
-    setShowForm(true);
+    setIsModalOpen(true);
   };
 
   const handleEditarProducto = (producto) => {
     setProductoAEditar(producto);
-    setShowForm(true);
+    setIsModalOpen(true);
   };
 
   const handleCerrarForm = (huboCambios) => {
-    setShowForm(false);
     setProductoAEditar(null);
+    onCloseModal(); // 🔥 limpia estado global + URL
     if (huboCambios) cargarProductosColono();
   };
 
@@ -124,7 +134,6 @@ const ColonoAdmin = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
 
-      {/* Título del Panel */}
       <div className="max-w-4xl mx-auto p-4">
         <h1 className="text-2xl font-bold text-green-700 mb-2">
           Panel de Control
@@ -134,7 +143,6 @@ const ColonoAdmin = () => {
         </p>
       </div>
 
-      {/* Lista de Productos */}
       <div className="max-w-4xl mx-auto px-4">
         {loadingProductos ? (
           <div className="text-center py-12">
@@ -206,12 +214,13 @@ const ColonoAdmin = () => {
         )}
       </div>
 
-      {/* Modal Producto */}
-      {showForm && (
+      {/* 🔥 Modal sincronizado */}
+      {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-xl w-full p-6">
             <ProductForm
               colonoData={colonoSeleccionado}
+              producto={productoAEditar}
               onSuccess={() => handleCerrarForm(true)}
             />
             <button
