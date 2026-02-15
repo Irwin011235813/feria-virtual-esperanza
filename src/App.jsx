@@ -60,7 +60,7 @@ function AppContent({ user, loadingAuth }) {
         <Header 
           user={user}
           onCartClick={openCart}
-          onOpenProduct={openProductModal}   {/* 🔥 IMPORTANTE */}
+          onOpenProduct={openProductModal}
         />
       )}
 

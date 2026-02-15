@@ -44,7 +44,7 @@ const Header = ({ user, onCartClick, onOpenProduct }) => {
           {user && (
             <>
               <button
-                onClick={onOpenProduct}   {/* 🔥 NO ES LINK */}
+                onClick={onOpenProduct}   
                 className="flex items-center gap-1 bg-green-50 text-green-700 px-3 py-2 rounded-full hover:bg-green-100 font-semibold text-sm"
               >
                 <PlusCircle className="w-4 h-4" />
