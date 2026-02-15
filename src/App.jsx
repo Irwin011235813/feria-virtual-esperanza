@@ -1,5 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './services/firebase'; // ✅ CORREGIDO
+
 import ProductCatalog from './components/catalog/ProductCatalog';
 import ColonoAdmin from './components/colono/ColonoAdmin';
 import LoginColono from './components/auth/LoginColono';
@@ -9,57 +12,60 @@ import CartButton from './components/cart/CartButton';
 import CartDrawer from './components/cart/CartDrawer';
 import { CartProvider } from './context/CartContext';
 
-/**
- * ✅ ESTRUCTURA CORRECTA:
- * CartDrawer se coloca AL FINAL del árbol de componentes
- * para que ningún elemento lo tape
- */
-
-
-
 function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
-  const openCart = () => {
-    console.log('🔓 Abriendo carrito...');
-    setIsCartOpen(true);
-  };
+  // 🔐 Listener global de Firebase
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setLoadingAuth(false);
+    });
 
-  const closeCart = () => {
-    console.log('🔒 Cerrando carrito...');
-    setIsCartOpen(false);
-  };
+    return () => unsubscribe();
+  }, []);
 
-  console.log('📊 Estado del carrito:', isCartOpen ? 'ABIERTO ✅' : 'CERRADO ❌');
+  const openCart = () => setIsCartOpen(true);
+  const closeCart = () => setIsCartOpen(false);
+
+  // ⏳ Mientras Firebase verifica sesión
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Verificando sesión...</p>
+      </div>
+    );
+  }
 
   return (
     <CartProvider>
       <Router>
         <div className="min-h-screen bg-gray-50">
           <Routes>
-            {/* Ruta pública: Catálogo */}
+
+            {/* 🧠 Ruta inteligente principal */}
             <Route
               path="/"
               element={
-                <>
-                  <Header onCartClick={openCart} />
-                  <ProductCatalog />
-                  <CartButton onClick={openCart} />
-                  
-                  {/* ✅ CART DRAWER AL FINAL - IMPORTANTE */}
-                  {/* Esto asegura que esté por encima de todo */}
-                  <CartDrawer 
-                    isOpen={isCartOpen} 
-                    onClose={closeCart} 
-                  />
-                </>
+                !user ? (
+                  <LoginColono />
+                ) : (
+                  <>
+                    <Header onCartClick={openCart} />
+                    <ProductCatalog />
+                    <CartButton onClick={openCart} />
+                    <CartDrawer 
+                      isOpen={isCartOpen} 
+                      onClose={closeCart} 
+                    />
+                  </>
+                )
               }
             />
 
-            {/* Ruta pública: Login */}
-            <Route path="/login" element={<LoginColono />} />
-
-            {/* Ruta protegida: Admin */}
+            {/* 🔒 Admin sigue protegido */}
             <Route
               path="/admin"
               element={
@@ -71,6 +77,7 @@ function App() {
 
             {/* 404 */}
             <Route path="*" element={<Navigate to="/" replace />} />
+
           </Routes>
         </div>
       </Router>
