@@ -97,13 +97,13 @@ const LoginColono = () => {
         });
         
         // Redirigir al panel
-        navigate('/admin');
+        navigate('/');
       } else {
         // LOGIN
         await iniciarSesionColono(formData.email, formData.password);
         
         // Redirigir al panel
-        navigate('/admin');
+        navigate('/');
       }
     } catch (err) {
       setError(err.message || 'Ocurrió un error. Intenta nuevamente.');
