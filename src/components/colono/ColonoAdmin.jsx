@@ -3,28 +3,24 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, updateProducto } from "../../services/firebase";
 import { obtenerColonoActual } from '../../services/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Package, Plus, Minus, Edit2, PlusCircle, Loader } from 'lucide-react';
+import { Package, Plus, Minus, Edit2, PlusCircle, Loader, X, Camera } from 'lucide-react'; // Agregamos iconos
 import ProductForm from './ProductForm';
 
-const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal }) => {
+const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [colonoSeleccionado, setColonoSeleccionado] = useState(null);
   const [loadingColono, setLoadingColono] = useState(true);
-
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
-
   const [productoAEditar, setProductoAEditar] = useState(null);
   const [updatingStock, setUpdatingStock] = useState({});
 
-  // 🔥 Detectar ?action=new
+  // 1. 🔥 Sincronización con la URL (?action=new)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const action = params.get("action");
-
-    if (action === "new") {
+    if (params.get("action") === "new") {
       setProductoAEditar(null);
       setIsModalOpen(true);
     }
@@ -43,15 +39,10 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal }) => {
   const cargarColonoAutenticado = async () => {
     try {
       const colono = await obtenerColonoActual();
-
-      if (!colono) {
-        navigate('/login');
-        return;
-      }
-
+      if (!colono) { navigate('/login'); return; }
       setColonoSeleccionado(colono);
     } catch (error) {
-      console.error('Error cargando colono:', error);
+      console.error('Error:', error);
       navigate('/login');
     } finally {
       setLoadingColono(false);
@@ -61,22 +52,13 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal }) => {
   const cargarProductosColono = async () => {
     setLoadingProductos(true);
     try {
-      const q = query(
-        collection(db, 'productos'),
-        where('colonoId', '==', colonoSeleccionado.id)
-      );
-
+      const q = query(collection(db, 'productos'), where('colonoId', '==', colonoSeleccionado.id));
       const snapshot = await getDocs(q);
-      const lista = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
+      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
       setProductos(lista);
     } catch (error) {
-      console.error('Error cargando productos:', error);
-      alert('Error al cargar productos');
+      console.error('Error:', error);
     } finally {
       setLoadingProductos(false);
     }
@@ -85,28 +67,15 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal }) => {
   const actualizarStock = async (productoId, cambio) => {
     const producto = productos.find(p => p.id === productoId);
     const nuevoStock = Math.max(0, producto.stock + cambio);
-
     setUpdatingStock(prev => ({ ...prev, [productoId]: true }));
-
     try {
       await updateProducto(productoId, { stock: nuevoStock });
-
-      setProductos(prev =>
-        prev.map(p =>
-          p.id === productoId ? { ...p, stock: nuevoStock } : p
-        )
-      );
+      setProductos(prev => prev.map(p => p.id === productoId ? { ...p, stock: nuevoStock } : p));
     } catch (error) {
-      console.error('Error actualizando stock:', error);
-      alert('Error al actualizar stock');
+      console.error('Error:', error);
     } finally {
       setUpdatingStock(prev => ({ ...prev, [productoId]: false }));
     }
-  };
-
-  const handleNuevoProducto = () => {
-    setProductoAEditar(null);
-    setIsModalOpen(true);
   };
 
   const handleEditarProducto = (producto) => {
@@ -116,97 +85,46 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal }) => {
 
   const handleCerrarForm = (huboCambios) => {
     setProductoAEditar(null);
-    onCloseModal(); // 🔥 limpia estado global + URL
+    onCloseModal(); // 🔥 Limpia estado y URL vía App.jsx
     if (huboCambios) cargarProductosColono();
   };
 
   if (loadingColono) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader className="w-10 h-10 text-green-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando panel...</p>
-        </div>
+        <Loader className="w-10 h-10 text-green-600 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-24 relative">
+      <div className="max-w-4xl mx-auto p-6">
+        <h1 className="text-3xl font-bold text-green-800 mb-1">Panel de Control</h1>
+        <p className="text-gray-500 mb-8 font-medium">Gestiona tus productos y stock</p>
 
-      <div className="max-w-4xl mx-auto p-4">
-        <h1 className="text-2xl font-bold text-green-700 mb-2">
-          Panel de Control
-        </h1>
-        <p className="text-gray-500 mb-6">
-          Gestiona tus productos y stock disponible
-        </p>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4">
         {loadingProductos ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-            <p className="text-gray-600 mt-4">Cargando productos...</p>
-          </div>
+          <div className="text-center py-12"><Loader className="animate-spin mx-auto text-green-600" /></div>
         ) : productos.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              No tienes productos todavía
-            </h3>
-            <button
-              onClick={handleNuevoProducto}
-              className="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition"
-            >
-              <PlusCircle className="w-5 h-5" />
-              Agregar Producto
-            </button>
+          <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-dashed border-gray-300">
+            <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No tienes productos todavía.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid gap-4">
             {productos.map((producto) => (
-              <div
-                key={producto.id}
-                className="bg-white rounded-lg shadow p-4 border"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      {producto.nombre}
-                    </h3>
-                    <p className="text-green-600 font-bold">
-                      ${(producto.precio / 100).toFixed(2)}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => handleEditarProducto(producto)}
-                    className="text-gray-500 hover:text-green-600"
-                  >
-                    <Edit2 size={18} />
-                  </button>
+              <div key={producto.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-gray-800 text-lg">{producto.nombre}</h3>
+                  <p className="text-green-600 font-bold">${(producto.precio / 100).toFixed(2)}</p>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => actualizarStock(producto.id, -1)}
-                    disabled={producto.stock === 0}
-                    className="bg-red-100 text-red-700 p-2 rounded"
-                  >
-                    <Minus size={16} />
-                  </button>
-
-                  <span className="text-xl font-bold w-10 text-center">
-                    {producto.stock}
-                  </span>
-
-                  <button
-                    onClick={() => actualizarStock(producto.id, 1)}
-                    className="bg-green-100 text-green-700 p-2 rounded"
-                  >
-                    <Plus size={16} />
-                  </button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center bg-gray-50 rounded-lg p-1 border">
+                    <button onClick={() => actualizarStock(producto.id, -1)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"><Minus size={18}/></button>
+                    <span className="w-12 text-center font-bold text-xl">{producto.stock}</span>
+                    <button onClick={() => actualizarStock(producto.id, 1)} className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"><Plus size={18}/></button>
+                  </div>
+                  <button onClick={() => handleEditarProducto(producto)} className="p-2 text-gray-400 hover:text-green-600 transition-colors"><Edit2 size={20}/></button>
                 </div>
               </div>
             ))}
@@ -214,21 +132,39 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal }) => {
         )}
       </div>
 
-      {/* 🔥 Modal sincronizado */}
+      {/* 2. 🟢 BOTÓN FLOTANTE ESTILIZADO */}
+      <button
+        onClick={onOpenModal}
+        className="fixed bottom-8 right-8 bg-green-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:bg-green-700 hover:scale-110 transition-all z-40"
+      >
+        <Plus size={32} strokeWidth={3} />
+      </button>
+
+      {/* 3. 🖼️ MODAL CON CÁMARA */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-xl w-full p-6">
-            <ProductForm
-              colonoData={colonoSeleccionado}
-              producto={productoAEditar}
-              onSuccess={() => handleCerrarForm(true)}
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl relative animate-in zoom-in duration-200">
+            <button onClick={() => handleCerrarForm(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800"><X size={24} /></button>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">{productoAEditar ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+            
+            <ProductForm 
+              colonoData={colonoSeleccionado} 
+              producto={productoAEditar} 
+              onSuccess={() => handleCerrarForm(true)} 
             />
-            <button
-              onClick={() => handleCerrarForm(false)}
-              className="mt-4 text-gray-500"
-            >
-              Cerrar
-            </button>
+
+            {/* 📸 ACCESO DIRECTO A CÁMARA */}
+            {!productoAEditar && (
+              <div className="mt-6 p-4 bg-green-50 border-2 border-dashed border-green-200 rounded-xl flex flex-col items-center">
+                <p className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-2"><Camera size={18}/> ¿Sacar foto ahora?</p>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  capture="environment" 
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -3,7 +3,8 @@ import {
   Routes, 
   Route, 
   Navigate,
-  useLocation
+  useLocation,
+  useNavigate
 } from "react-router-dom";
 
 import { useState, useEffect } from "react";
@@ -19,16 +20,29 @@ import CartButton from "./components/cart/CartButton";
 import CartDrawer from "./components/cart/CartDrawer";
 import { CartProvider } from "./context/CartContext";
 
-
-// 🔥 Componente interno para poder usar useLocation
 function AppContent({ user, loadingAuth }) {
   const location = useLocation();
+  const navigate = useNavigate();
+
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
 
-  // ⏳ Mientras Firebase verifica sesión
+  const openProductModal = () => {
+    if (location.pathname !== "/admin") {
+      navigate("/admin?action=new");
+    } else {
+      setIsProductModalOpen(true);
+    }
+  };
+
+  const closeProductModal = () => {
+    setIsProductModalOpen(false);
+    navigate("/admin", { replace: true });
+  };
+
   if (loadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -37,57 +51,47 @@ function AppContent({ user, loadingAuth }) {
     );
   }
 
-  // 👇 Ocultamos Header solo en /login
   const hideHeader = location.pathname === "/login";
 
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* ✅ Header centralizado */}
       {!hideHeader && (
         <Header 
           user={user}
           onCartClick={openCart}
+          onOpenProduct={openProductModal}   {/* 🔥 IMPORTANTE */}
         />
       )}
 
       <Routes>
 
-        {/* 🛍 Catálogo */}
-        <Route
-          path="/"
-          element={<ProductCatalog />}
-        />
+        <Route path="/" element={<ProductCatalog />} />
 
-        {/* 🔐 Login */}
-        <Route
-          path="/login"
-          element={<LoginColono />}
-        />
+        <Route path="/login" element={<LoginColono />} />
 
-        {/* 🔒 Admin protegido */}
         <Route
           path="/admin"
           element={
             <ProtectedRoute>
-              <ColonoAdmin />
+              <ColonoAdmin 
+                isModalOpen={isProductModalOpen}
+                setIsModalOpen={setIsProductModalOpen}
+                onCloseModal={closeProductModal}
+                onOpenModal={openProductModal}
+              />
             </ProtectedRoute>
           }
         />
 
-        {/* 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
 
-      {/* 🛒 Elementos globales */}
       {!hideHeader && (
         <>
           <CartButton onClick={openCart} />
-          <CartDrawer 
-            isOpen={isCartOpen} 
-            onClose={closeCart} 
-          />
+          <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
         </>
       )}
 
@@ -95,12 +99,10 @@ function AppContent({ user, loadingAuth }) {
   );
 }
 
-
 function App() {
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // 🔐 Observer global de Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
