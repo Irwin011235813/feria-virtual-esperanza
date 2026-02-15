@@ -3,7 +3,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, updateProducto } from "../../services/firebase";
 import { obtenerColonoActual } from '../../services/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Package, Plus, Minus, Edit2, PlusCircle, Loader, X, Camera } from 'lucide-react'; // Agregamos iconos
+import { Package, Plus, Minus, Edit2, Loader, X } from 'lucide-react';
 import ProductForm from './ProductForm';
 
 const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal }) => {
@@ -15,9 +15,8 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [productoAEditar, setProductoAEditar] = useState(null);
-  const [updatingStock, setUpdatingStock] = useState({});
 
-  // 1. 🔥 Sincronización con la URL (?action=new)
+  // 1. 🔥 Sincronización con la URL (?action=new) para abrir desde el Header
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("action") === "new") {
@@ -42,7 +41,7 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
       if (!colono) { navigate('/login'); return; }
       setColonoSeleccionado(colono);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error cargando colono:', error);
       navigate('/login');
     } finally {
       setLoadingColono(false);
@@ -58,7 +57,7 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
       lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
       setProductos(lista);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error cargando productos:', error);
     } finally {
       setLoadingProductos(false);
     }
@@ -67,14 +66,11 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
   const actualizarStock = async (productoId, cambio) => {
     const producto = productos.find(p => p.id === productoId);
     const nuevoStock = Math.max(0, producto.stock + cambio);
-    setUpdatingStock(prev => ({ ...prev, [productoId]: true }));
     try {
       await updateProducto(productoId, { stock: nuevoStock });
       setProductos(prev => prev.map(p => p.id === productoId ? { ...p, stock: nuevoStock } : p));
     } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setUpdatingStock(prev => ({ ...prev, [productoId]: false }));
+      console.error('Error actualizando stock:', error);
     }
   };
 
@@ -83,9 +79,10 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     setIsModalOpen(true);
   };
 
+  // ✅ Función crucial para destrabar el modal y limpiar la URL
   const handleCerrarForm = (huboCambios) => {
     setProductoAEditar(null);
-    onCloseModal(); // 🔥 Limpia estado y URL vía App.jsx
+    onCloseModal(); // Llama a la función de App.jsx que quita el ?action=new
     if (huboCambios) cargarProductosColono();
   };
 
@@ -108,23 +105,25 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         ) : productos.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-dashed border-gray-300">
             <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No tienes productos todavía.</p>
+            <p className="text-gray-500 font-medium">Aún no tienes productos cargados.</p>
           </div>
         ) : (
           <div className="grid gap-4">
             {productos.map((producto) => (
-              <div key={producto.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex justify-between items-center">
+              <div key={producto.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex justify-between items-center transition-all hover:shadow-md">
                 <div>
                   <h3 className="font-bold text-gray-800 text-lg">{producto.nombre}</h3>
                   <p className="text-green-600 font-bold">${(producto.precio / 100).toFixed(2)}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center bg-gray-50 rounded-lg p-1 border">
+                  <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
                     <button onClick={() => actualizarStock(producto.id, -1)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"><Minus size={18}/></button>
                     <span className="w-12 text-center font-bold text-xl">{producto.stock}</span>
                     <button onClick={() => actualizarStock(producto.id, 1)} className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"><Plus size={18}/></button>
                   </div>
-                  <button onClick={() => handleEditarProducto(producto)} className="p-2 text-gray-400 hover:text-green-600 transition-colors"><Edit2 size={20}/></button>
+                  <button onClick={() => handleEditarProducto(producto)} className="p-2 text-gray-400 hover:text-green-600 transition-colors" title="Editar">
+                    <Edit2 size={20}/>
+                  </button>
                 </div>
               </div>
             ))}
@@ -132,39 +131,39 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         )}
       </div>
 
-      {/* 2. 🟢 BOTÓN FLOTANTE ESTILIZADO */}
+      {/* 🟢 BOTÓN FLOTANTE "+" SIEMPRE VISIBLE */}
       <button
         onClick={onOpenModal}
-        className="fixed bottom-8 right-8 bg-green-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:bg-green-700 hover:scale-110 transition-all z-40"
+        className="fixed bottom-8 right-8 bg-green-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:bg-green-700 hover:scale-110 active:scale-95 transition-all z-40 border-4 border-white"
+        title="Cargar nuevo producto"
       >
         <Plus size={32} strokeWidth={3} />
       </button>
 
-      {/* 3. 🖼️ MODAL CON CÁMARA */}
+      {/* 🖼️ MODAL DE CARGA CON DESENFOQUE DE FONDO */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl relative animate-in zoom-in duration-200">
-            <button onClick={() => handleCerrarForm(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800"><X size={24} /></button>
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">{productoAEditar ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl relative my-auto animate-in zoom-in duration-200">
             
+            {/* Botón X para cerrar rápido */}
+            <button 
+              onClick={() => handleCerrarForm(false)} 
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors p-1"
+            >
+              <X size={24} />
+            </button>
+
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+              {productoAEditar ? 'Editar Producto' : 'Cargar Nuevo Producto'}
+            </h2>
+            
+            {/* Formulario integrado con cámara */}
             <ProductForm 
               colonoData={colonoSeleccionado} 
               producto={productoAEditar} 
               onSuccess={() => handleCerrarForm(true)} 
+              onCancel={() => handleCerrarForm(false)}
             />
-
-            {/* 📸 ACCESO DIRECTO A CÁMARA */}
-            {!productoAEditar && (
-              <div className="mt-6 p-4 bg-green-50 border-2 border-dashed border-green-200 rounded-xl flex flex-col items-center">
-                <p className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-2"><Camera size={18}/> ¿Sacar foto ahora?</p>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  capture="environment" 
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"
-                />
-              </div>
-            )}
           </div>
         </div>
       )}

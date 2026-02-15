@@ -1,181 +1,177 @@
-// ============================================
-// PRODUCT FORM - MODAL PROFESIONAL
-// ============================================
+import { useState, useRef, useEffect } from 'react';
+import { Camera, X, Loader, Save, Trash2 } from 'lucide-react';
+import { db, storage } from '../../services/firebase'; // Ajusta si tu ruta es distinta
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
-import { createProducto, uploadProductImage } from "../../services/firebase";
-
-const ProductForm = () => {
-  const navigate = useNavigate();
-  const modalRef = useRef(null);
-
+const ProductForm = ({ colonoData, producto, onSuccess, onCancel }) => {
+  const [nombre, setNombre] = useState(producto?.nombre || '');
+  const [precio, setPrecio] = useState(producto?.precio ? (producto.precio / 100).toString() : '');
+  const [categoria, setCategoria] = useState(producto?.categoria || '');
+  const [stock, setStock] = useState(producto?.stock || 0);
+  
+  const [imageFile, setImageFile] = useState(null);
+  const [preview, setPreview] = useState(producto?.imagen || null);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    nombre: "",
-    precio: "",
-    categoria: "",
-    descripcion: "",
-    imagen: null,
-  });
+  
+  const fileInputRef = useRef(null);
 
-  // 🔹 Cerrar modal
-  const handleClose = () => {
-    navigate("/");
-  };
-
-  // 🔹 Cerrar con ESC
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        handleClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // 🔹 Cerrar si hace clic fuera del modal
-  const handleOverlayClick = (e) => {
-    if (modalRef.current && !modalRef.current.contains(e.target)) {
-      handleClose();
+  // Manejar captura de cámara/archivo
+  const handleCapture = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setPreview(URL.createObjectURL(file));
     }
   };
 
-  // 🔹 Manejar cambios
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-
-    if (name === "imagen") {
-      setFormData({ ...formData, imagen: files[0] });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
-  };
-
-  // 🔹 Guardar producto
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      let imageUrl = "";
+      let imageUrl = producto?.imagen || '';
 
-      if (formData.imagen) {
-        imageUrl = await uploadProductImage(formData.imagen);
+      // Si hay una foto nueva, subirla a Firebase Storage
+      if (imageFile) {
+        const storageRef = ref(storage, `productos/${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(snapshot.ref);
       }
 
-      await createProducto({
-        nombre: formData.nombre,
-        precio: Number(formData.precio) * 100,
-        categoria: formData.categoria,
-        descripcion: formData.descripcion,
+      const datosProducto = {
+        nombre,
+        precio: Math.round(parseFloat(precio) * 100), // Guardar en centavos
+        categoria,
+        stock: parseInt(stock),
         imagen: imageUrl,
-      });
+        colonoId: colonoData.id,
+        colonoNombre: colonoData.nombre,
+        updatedAt: new Date()
+      };
 
-      navigate("/");
+      if (producto?.id) {
+        // Editar existente
+        await updateDoc(doc(db, 'productos', producto.id), datosProducto);
+      } else {
+        // Crear nuevo
+        await addDoc(collection(db, 'productos'), {
+          ...datosProducto,
+          createdAt: new Date()
+        });
+      }
+
+      onSuccess(); // Cierra el modal y refresca la lista
     } catch (error) {
       console.error("Error al guardar:", error);
+      alert("Hubo un error al guardar el producto");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div
-      onClick={handleOverlayClick}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-    >
-      {/* Modal */}
-      <div
-        ref={modalRef}
-        className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-8 relative animate-fadeIn"
-      >
-        {/* Botón X */}
-        <button
-          onClick={handleClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition"
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* 📸 SECCIÓN DE CÁMARA E IMAGEN */}
+      <div className="flex flex-col items-center">
+        <div 
+          onClick={() => fileInputRef.current.click()}
+          className="w-full h-48 border-2 border-dashed border-green-300 rounded-2xl bg-green-50 flex flex-col items-center justify-center cursor-pointer overflow-hidden hover:bg-green-100 transition-all shadow-inner"
         >
-          <X size={22} />
-        </button>
+          {preview ? (
+            <img src={preview} alt="Vista previa" className="w-full h-full object-cover" />
+          ) : (
+            <div className="text-center p-4">
+              <Camera className="w-12 h-12 text-green-600 mx-auto mb-2" />
+              <p className="text-sm font-bold text-green-700">Tocar para sacar foto</p>
+              <p className="text-xs text-green-500">Obligatorio para vender</p>
+            </div>
+          )}
+        </div>
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          accept="image/*" 
+          capture="environment" 
+          onChange={handleCapture}
+          className="hidden" 
+        />
+        {preview && (
+          <button 
+            type="button" 
+            onClick={() => {setPreview(null); setImageFile(null);}}
+            className="mt-2 text-xs text-red-500 flex items-center gap-1 hover:underline"
+          >
+            <Trash2 size={12}/> Quitar foto
+          </button>
+        )}
+      </div>
 
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">
-          Cargar Nuevo Producto
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-
-          <input
-            type="text"
-            name="nombre"
-            placeholder="Nombre del producto"
-            value={formData.nombre}
-            onChange={handleChange}
-            required
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 outline-none"
-          />
-
+      {/* CAMPOS DEL FORMULARIO */}
+      <div className="grid grid-cols-1 gap-4">
+        <input
+          type="text"
+          placeholder="Nombre (ej: Bollito Casero)"
+          className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 outline-none transition-all"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          required
+        />
+        
+        <div className="flex gap-2">
           <input
             type="number"
-            name="precio"
-            placeholder="Precio"
-            value={formData.precio}
-            onChange={handleChange}
+            step="0.01"
+            placeholder="Precio (ej: 500)"
+            className="flex-1 p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 outline-none"
+            value={precio}
+            onChange={(e) => setPrecio(e.target.value)}
             required
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 outline-none"
           />
-
           <input
-            type="text"
-            name="categoria"
-            placeholder="Categoría"
-            value={formData.categoria}
-            onChange={handleChange}
+            type="number"
+            placeholder="Stock"
+            className="w-24 p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 outline-none"
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
             required
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 outline-none"
           />
+        </div>
 
-          <textarea
-            name="descripcion"
-            placeholder="Descripción"
-            value={formData.descripcion}
-            onChange={handleChange}
-            rows="3"
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 outline-none"
-          />
-
-          <input
-            type="file"
-            name="imagen"
-            accept="image/*"
-            onChange={handleChange}
-            className="w-full"
-          />
-
-          {/* Botones */}
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-            >
-              {loading ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-
-        </form>
+        <select
+          className="w-full p-3 rounded-xl border border-gray-200 bg-white outline-none focus:ring-2 focus:ring-green-500"
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value)}
+          required
+        >
+          <option value="">Seleccionar Categoría</option>
+          <option value="Panificados">Panificados</option>
+          <option value="Verduras">Verduras</option>
+          <option value="Frutas">Frutas</option>
+          <option value="Lácteos">Lácteos</option>
+          <option value="Otros">Otros</option>
+        </select>
       </div>
-    </div>
+
+      {/* BOTONES DE ACCIÓN */}
+      <div className="flex gap-3 mt-6">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 py-3 px-4 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition-colors"
+          disabled={loading}
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          className="flex-1 py-3 px-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-200 flex items-center justify-center gap-2 disabled:opacity-50"
+          disabled={loading}
+        >
+          {loading ? <Loader className="animate-spin" size={20} /> : <><Save size={20} /> Guardar</>}
+        </button>
+      </div>
+    </form>
   );
 };
 
