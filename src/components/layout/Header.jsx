@@ -1,43 +1,55 @@
 import { Link, useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "../../firebase";
+import { signOut, onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../services/firebase";
+import { useEffect, useState } from "react";
 
 const Header = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+
+  // Detecta si el usuario está logueado
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleLogout = async () => {
-    await signOut(auth);
-    navigate("/");
+    try {
+      await signOut(auth);
+      navigate("/");
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
   };
 
   return (
     <header className="header">
       <div className="header-container">
 
-        {/* ✅ Logo clickeable */}
+        {/* Logo */}
         <Link to="/" className="logo">
           Feria Virtual Esperanza
         </Link>
 
         <nav className="nav-links">
-
-          {/* Siempre visible */}
           <Link to="/">Inicio</Link>
 
-          {/* ✅ Solo si está logueado */}
-          {user && (
+          {/* Si está logueado */}
+          {user ? (
             <>
               <Link to="/colono">Subir Producto</Link>
-              <button onClick={handleLogout}>Cerrar Sesión</button>
+              <button onClick={handleLogout}>
+                Cerrar Sesión
+              </button>
             </>
-          )}
-
-          {/* Si NO está logueado */}
-          {!user && (
+          ) : (
             <Link to="/login">Ingreso Colono</Link>
           )}
-
         </nav>
+
       </div>
     </header>
   );
