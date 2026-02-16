@@ -16,7 +16,7 @@ import ColonoAdmin from "./components/colono/ColonoAdmin";
 import LoginColono from "./components/auth/LoginColono";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Header from "./components/layout/Header";
-import CartButton from "./components/cart/CartButton";
+import BottomNavBar from "./components/BottomNavBar";
 import CartDrawer from "./components/cart/CartDrawer";
 import { CartProvider } from "./context/CartContext";
 
@@ -51,12 +51,13 @@ function AppContent({ user, loadingAuth }) {
     );
   }
 
-  const hideHeader = location.pathname === "/login";
+  const hideHeaderAndNav = location.pathname === "/login";
 
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {!hideHeader && (
+      {/* Header superior (oculto en login) */}
+      {!hideHeaderAndNav && (
         <Header 
           user={user}
           onCartClick={openCart}
@@ -64,8 +65,8 @@ function AppContent({ user, loadingAuth }) {
         />
       )}
 
+      {/* Contenido principal */}
       <Routes>
-
         <Route path="/" element={<ProductCatalog />} />
 
         <Route path="/login" element={<LoginColono />} />
@@ -85,12 +86,15 @@ function AppContent({ user, loadingAuth }) {
         />
 
         <Route path="*" element={<Navigate to="/" replace />} />
-
       </Routes>
 
-      {!hideHeader && (
+      {/* Bottom Navigation Bar (oculto en login) */}
+      {!hideHeaderAndNav && (
         <>
-          <CartButton onClick={openCart} />
+          <BottomNavBar 
+            onCartClick={openCart}
+            onOpenProduct={openProductModal}
+          />
           <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
         </>
       )}
