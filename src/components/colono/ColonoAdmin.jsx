@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { db, updateProducto } from "../../services/firebase";
 import { obtenerColonoActual } from '../../services/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Package, Plus, Minus, Edit2, Loader, X } from 'lucide-react';
+import { Package, Plus, Minus, Edit2, Loader, X, Trash2 } from 'lucide-react';
 import ProductForm from './ProductForm';
 
 const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal }) => {
@@ -15,6 +15,7 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [productoAEditar, setProductoAEditar] = useState(null);
+  const [productoBorrar, setProductoBorrar] = useState(null); // Para confirmación de borrado
 
   // 1. 🔥 Sincronización con la URL (?action=new) para abrir desde el Header
   useEffect(() => {
@@ -28,19 +29,18 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
   // 2. 🎯 CIERRE CON TECLA ESC
   useEffect(() => {
     const handleEscKey = (e) => {
-      if (e.key === 'Escape' && isModalOpen) {
-        handleCerrarForm(false);
+      if (e.key === 'Escape') {
+        if (productoBorrar) {
+          setProductoBorrar(null); // Cerrar modal de confirmación
+        } else if (isModalOpen) {
+          handleCerrarForm(false); // Cerrar modal de producto
+        }
       }
     };
 
-    if (isModalOpen) {
-      document.addEventListener('keydown', handleEscKey);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [isModalOpen]);
+    document.addEventListener('keydown', handleEscKey);
+    return () => document.removeEventListener('keydown', handleEscKey);
+  }, [isModalOpen, productoBorrar]);
 
   useEffect(() => {
     cargarColonoAutenticado();
@@ -96,16 +96,34 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     setIsModalOpen(true);
   };
 
+  // 🗑️ NUEVO: Confirmar eliminación
+  const handleConfirmarEliminar = (producto) => {
+    setProductoBorrar(producto);
+  };
+
+  // 🗑️ NUEVO: Eliminar producto
+  const handleEliminarProducto = async () => {
+    if (!productoBorrar) return;
+
+    try {
+      await deleteDoc(doc(db, 'productos', productoBorrar.id));
+      setProductos(prev => prev.filter(p => p.id !== productoBorrar.id));
+      setProductoBorrar(null);
+    } catch (error) {
+      console.error('Error eliminando producto:', error);
+      alert('Error al eliminar el producto. Intentá de nuevo.');
+    }
+  };
+
   // ✅ Función crucial para destrabar el modal y limpiar la URL
   const handleCerrarForm = (huboCambios) => {
     setProductoAEditar(null);
-    onCloseModal(); // Llama a la función de App.jsx que quita el ?action=new
+    onCloseModal();
     if (huboCambios) cargarProductosColono();
   };
 
   // 3. 🖱️ MANEJADOR PARA CLIC EN EL OVERLAY
   const handleOverlayClick = (e) => {
-    // Solo cierra si se hace clic directamente en el overlay (no en el contenido)
     if (e.target === e.currentTarget) {
       handleCerrarForm(false);
     }
@@ -137,7 +155,7 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
             {productos.map((producto) => (
               <div key={producto.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex items-center justify-between transition-all hover:shadow-md">
                 
-                {/* 4. 📸 IMAGEN DEL PRODUCTO */}
+                {/* 📸 IMAGEN DEL PRODUCTO */}
                 <div className="flex items-center gap-4 flex-1">
                   {producto.imagen ? (
                     <img 
@@ -162,12 +180,14 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
                   </div>
                 </div>
 
-                {/* CONTROLES DE STOCK Y EDICIÓN */}
-                <div className="flex items-center gap-4">
+                {/* CONTROLES DE STOCK Y ACCIONES */}
+                <div className="flex items-center gap-3">
+                  {/* Control de stock */}
                   <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
                     <button 
                       onClick={() => actualizarStock(producto.id, -1)} 
                       className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                      title="Disminuir stock"
                     >
                       <Minus size={18}/>
                     </button>
@@ -175,16 +195,28 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
                     <button 
                       onClick={() => actualizarStock(producto.id, 1)} 
                       className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                      title="Aumentar stock"
                     >
                       <Plus size={18}/>
                     </button>
                   </div>
+
+                  {/* Botón Editar */}
                   <button 
                     onClick={() => handleEditarProducto(producto)} 
-                    className="p-2 text-gray-400 hover:text-green-600 transition-colors" 
-                    title="Editar"
+                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" 
+                    title="Editar producto"
                   >
                     <Edit2 size={20}/>
+                  </button>
+
+                  {/* 🗑️ NUEVO: Botón Eliminar */}
+                  <button 
+                    onClick={() => handleConfirmarEliminar(producto)} 
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" 
+                    title="Eliminar producto"
+                  >
+                    <Trash2 size={20}/>
                   </button>
                 </div>
               </div>
@@ -193,16 +225,16 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         )}
       </div>
 
-      {/* 🟢 BOTÓN FLOTANTE "+" SIEMPRE VISIBLE */}
+      {/* 🟢 BOTÓN FLOTANTE "+" CON Z-INDEX CORREGIDO */}
       <button
         onClick={onOpenModal}
-        className="fixed bottom-8 right-8 bg-green-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:bg-green-700 hover:scale-110 active:scale-95 transition-all z-40 border-4 border-white"
+        className="fixed bottom-24 right-8 bg-green-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:bg-green-700 hover:scale-110 active:scale-95 transition-all z-[60] border-4 border-white"
         title="Cargar nuevo producto"
       >
         <Plus size={32} strokeWidth={3} />
       </button>
 
-      {/* 🖼️ MODAL DE CARGA CON CIERRE MEJORADO */}
+      {/* 🖼️ MODAL DE CARGA */}
       {isModalOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
@@ -212,8 +244,6 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
             className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl relative my-auto animate-in zoom-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            
-            {/* Botón X para cerrar rápido */}
             <button 
               onClick={() => handleCerrarForm(false)} 
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors p-1"
@@ -225,13 +255,54 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
               {productoAEditar ? 'Editar Producto' : 'Cargar Nuevo Producto'}
             </h2>
             
-            {/* Formulario integrado con cámara */}
             <ProductForm 
               colonoData={colonoSeleccionado} 
               producto={productoAEditar} 
               onSuccess={() => handleCerrarForm(true)} 
               onCancel={() => handleCerrarForm(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* 🗑️ NUEVO: MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {productoBorrar && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
+          onClick={() => setProductoBorrar(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icono de advertencia */}
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+
+            <h3 className="text-xl font-bold text-gray-800 text-center mb-2">
+              ¿Eliminar producto?
+            </h3>
+            
+            <p className="text-gray-600 text-center mb-6">
+              Estás por eliminar <span className="font-bold text-gray-800">"{productoBorrar.nombre}"</span>. Esta acción no se puede deshacer.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setProductoBorrar(null)}
+                className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEliminarProducto}
+                className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={20} />
+                Eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}
