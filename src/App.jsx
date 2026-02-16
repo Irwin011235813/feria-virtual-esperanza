@@ -20,6 +20,9 @@ import BottomNavBar from "./components/BottomNavBar";
 import CartDrawer from "./components/cart/CartDrawer";
 import { CartProvider } from "./context/CartContext";
 
+// 🔧 IMPORT TEMPORAL - Eliminar después de usar
+import ActualizarProductos from "./components/utils/ActualizarProductos";
+
 function AppContent({ user, loadingAuth }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -51,12 +54,12 @@ function AppContent({ user, loadingAuth }) {
     );
   }
 
-  const hideHeaderAndNav = location.pathname === "/login";
+  const hideHeaderAndNav = location.pathname === "/login" || location.pathname === "/actualizar-productos";
 
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Header superior (oculto en login) */}
+      {/* Header superior (oculto en login y actualización) */}
       {!hideHeaderAndNav && (
         <Header 
           user={user}
@@ -85,10 +88,13 @@ function AppContent({ user, loadingAuth }) {
           }
         />
 
+        {/* 🔧 RUTA TEMPORAL - Eliminar después de usar */}
+        <Route path="/actualizar-productos" element={<ActualizarProductos />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Bottom Navigation Bar (oculto en login) */}
+      {/* Bottom Navigation Bar (oculto en login y actualización) */}
       {!hideHeaderAndNav && (
         <>
           <BottomNavBar 
