@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, X, Loader, Save, Trash2, AlertCircle } from 'lucide-react';
 import { db, storage } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, updateDoc, doc } from 'firestore';
+import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 
 const ProductForm = ({ colonoData, producto, onSuccess, onCancel }) => {
   const [nombre, setNombre] = useState(producto?.nombre || '');
