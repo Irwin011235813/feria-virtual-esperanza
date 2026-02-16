@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, X, Loader, Save, Trash2, AlertCircle } from 'lucide-react';
 import { db, storage } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc } from 'firestore';
 
 const ProductForm = ({ colonoData, producto, onSuccess, onCancel }) => {
   const [nombre, setNombre] = useState(producto?.nombre || '');
@@ -26,26 +26,28 @@ const ProductForm = ({ colonoData, producto, onSuccess, onCancel }) => {
     }
   }, [error]);
 
-  // Manejar captura de cámara/archivo
+  // ✅ MEJORADO: Manejar selección de imagen desde cámara O galería
   const handleCapture = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validar tamaño (máximo 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('La imagen es muy grande. Máximo 5MB.');
-        return;
-      }
+    const file = e.target.files?.[0];
+    
+    if (!file) return;
 
-      // Validar tipo
-      if (!file.type.startsWith('image/')) {
-        setError('El archivo debe ser una imagen.');
-        return;
-      }
-
-      setImageFile(file);
-      setPreview(URL.createObjectURL(file));
-      setError(''); // Limpiar cualquier error previo
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+      setError('Por favor seleccioná una imagen válida.');
+      return;
     }
+
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen es muy grande. Máximo 5MB.');
+      return;
+    }
+
+    // Guardar archivo y crear preview
+    setImageFile(file);
+    setPreview(URL.createObjectURL(file));
+    setError(''); // Limpiar cualquier error previo
   };
 
   const handleSubmit = async (e) => {
@@ -54,7 +56,7 @@ const ProductForm = ({ colonoData, producto, onSuccess, onCancel }) => {
 
     // ✅ VALIDACIÓN: Imagen obligatoria para productos nuevos
     if (!producto && !imageFile) {
-      setError('Debes sacar una foto del producto para poder venderlo.');
+      setError('Debes seleccionar una foto del producto para poder venderlo.');
       return;
     }
 
@@ -162,17 +164,18 @@ const ProductForm = ({ colonoData, producto, onSuccess, onCancel }) => {
           ) : (
             <div className="text-center p-4">
               <Camera className="w-12 h-12 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-bold text-green-700">Tocar para sacar foto</p>
+              <p className="text-sm font-bold text-green-700">Tocar para seleccionar foto</p>
+              <p className="text-xs text-gray-500 mt-1">Cámara o Galería</p>
               <p className="text-xs text-red-600 font-semibold mt-1">* Obligatorio para vender</p>
             </div>
           )}
         </div>
         
+        {/* ✅ INPUT MEJORADO: Sin capture="environment" para permitir elegir */}
         <input 
           type="file" 
           ref={fileInputRef}
-          accept="image/*" 
-          capture="environment" 
+          accept="image/*"
           onChange={handleCapture}
           className="hidden"
           disabled={loading}
@@ -184,7 +187,7 @@ const ProductForm = ({ colonoData, producto, onSuccess, onCancel }) => {
             onClick={handleRemoveImage}
             className="mt-2 text-xs text-red-500 flex items-center gap-1 hover:underline font-medium"
           >
-            <Trash2 size={12}/> Quitar foto y tomar otra
+            <Trash2 size={12}/> Quitar foto y seleccionar otra
           </button>
         )}
 
