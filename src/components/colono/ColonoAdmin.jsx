@@ -15,9 +15,9 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [productoAEditar, setProductoAEditar] = useState(null);
-  const [productoBorrar, setProductoBorrar] = useState(null); // Para confirmación de borrado
+  const [productoBorrar, setProductoBorrar] = useState(null);
 
-  // 1. 🔥 Sincronización con la URL (?action=new) para abrir desde el Header
+  // Sincronización con la URL (?action=new)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("action") === "new") {
@@ -26,14 +26,14 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     }
   }, [location.search, setIsModalOpen]);
 
-  // 2. 🎯 CIERRE CON TECLA ESC
+  // Cierre con tecla ESC
   useEffect(() => {
     const handleEscKey = (e) => {
       if (e.key === 'Escape') {
         if (productoBorrar) {
-          setProductoBorrar(null); // Cerrar modal de confirmación
+          setProductoBorrar(null);
         } else if (isModalOpen) {
-          handleCerrarForm(false); // Cerrar modal de producto
+          handleCerrarForm(false);
         }
       }
     };
@@ -52,10 +52,28 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     }
   }, [colonoSeleccionado]);
 
+  // ✅ CRÍTICO: Cargar TODOS los datos del colono incluyendo teléfono
   const cargarColonoAutenticado = async () => {
     try {
       const colono = await obtenerColonoActual();
-      if (!colono) { navigate('/login'); return; }
+      
+      if (!colono) { 
+        navigate('/login'); 
+        return; 
+      }
+
+      // ✅ Verificar que el teléfono esté presente
+      console.log('📱 Datos del colono cargados:', {
+        id: colono.id,
+        nombre: colono.nombre,
+        telefono: colono.telefono,
+        email: colono.email
+      });
+
+      if (!colono.telefono) {
+        console.warn('⚠️ El colono no tiene teléfono registrado');
+      }
+
       setColonoSeleccionado(colono);
     } catch (error) {
       console.error('Error cargando colono:', error);
@@ -96,12 +114,10 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     setIsModalOpen(true);
   };
 
-  // 🗑️ NUEVO: Confirmar eliminación
   const handleConfirmarEliminar = (producto) => {
     setProductoBorrar(producto);
   };
 
-  // 🗑️ NUEVO: Eliminar producto
   const handleEliminarProducto = async () => {
     if (!productoBorrar) return;
 
@@ -115,14 +131,12 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
     }
   };
 
-  // ✅ Función crucial para destrabar el modal y limpiar la URL
   const handleCerrarForm = (huboCambios) => {
     setProductoAEditar(null);
     onCloseModal();
     if (huboCambios) cargarProductosColono();
   };
 
-  // 3. 🖱️ MANEJADOR PARA CLIC EN EL OVERLAY
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
       handleCerrarForm(false);
@@ -155,7 +169,6 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
             {productos.map((producto) => (
               <div key={producto.id} className="bg-white rounded-xl shadow-sm p-5 border border-gray-100 flex items-center justify-between transition-all hover:shadow-md">
                 
-                {/* 📸 IMAGEN DEL PRODUCTO */}
                 <div className="flex items-center gap-4 flex-1">
                   {producto.imagen ? (
                     <img 
@@ -180,9 +193,7 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
                   </div>
                 </div>
 
-                {/* CONTROLES DE STOCK Y ACCIONES */}
                 <div className="flex items-center gap-3">
-                  {/* Control de stock */}
                   <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
                     <button 
                       onClick={() => actualizarStock(producto.id, -1)} 
@@ -201,7 +212,6 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
                     </button>
                   </div>
 
-                  {/* Botón Editar */}
                   <button 
                     onClick={() => handleEditarProducto(producto)} 
                     className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" 
@@ -210,7 +220,6 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
                     <Edit2 size={20}/>
                   </button>
 
-                  {/* 🗑️ NUEVO: Botón Eliminar */}
                   <button 
                     onClick={() => handleConfirmarEliminar(producto)} 
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" 
@@ -225,7 +234,7 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         )}
       </div>
 
-      {/* 🟢 BOTÓN FLOTANTE "+" CON Z-INDEX CORREGIDO */}
+      {/* Botón flotante con z-index corregido */}
       <button
         onClick={onOpenModal}
         className="fixed bottom-24 right-8 bg-green-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:bg-green-700 hover:scale-110 active:scale-95 transition-all z-[60] border-4 border-white"
@@ -234,10 +243,10 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         <Plus size={32} strokeWidth={3} />
       </button>
 
-      {/* 🖼️ MODAL DE CARGA */}
+      {/* Modal de producto */}
       {isModalOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70] overflow-y-auto"
           onClick={handleOverlayClick}
         >
           <div 
@@ -255,8 +264,9 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
               {productoAEditar ? 'Editar Producto' : 'Cargar Nuevo Producto'}
             </h2>
             
+            {/* ✅ CRÍTICO: Pasar colonoData completo con telefono */}
             <ProductForm 
-              colonoData={colonoSeleccionado} 
+              colonoData={colonoSeleccionado}
               producto={productoAEditar} 
               onSuccess={() => handleCerrarForm(true)} 
               onCancel={() => handleCerrarForm(false)}
@@ -265,17 +275,16 @@ const ColonoAdmin = ({ isModalOpen, setIsModalOpen, onCloseModal, onOpenModal })
         </div>
       )}
 
-      {/* 🗑️ NUEVO: MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {/* Modal de confirmación de eliminación */}
       {productoBorrar && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[80]"
           onClick={() => setProductoBorrar(null)}
         >
           <div 
             className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Icono de advertencia */}
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-6 h-6 text-red-600" />
             </div>

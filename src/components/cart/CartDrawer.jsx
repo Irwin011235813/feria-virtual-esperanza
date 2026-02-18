@@ -1,5 +1,10 @@
+// ============================================
+// CART DRAWER - CON WHATSAPP MEJORADO
+// ============================================
+// Panel lateral con envío directo por WhatsApp sin bloqueos
+
 import { useState } from 'react';
-import { X, Trash2, Plus, Minus, ShoppingCart, Send, User, ChevronDown, ChevronUp, MapPin, Phone } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingCart, Send, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 
 const CartDrawer = ({ isOpen, onClose }) => {
@@ -23,7 +28,45 @@ const CartDrawer = ({ isOpen, onClose }) => {
   const [expandedColonos, setExpandedColonos] = useState({});
 
   /**
-   * ✅ MEJORADO: Agrupa y busca el teléfono en múltiples campos
+   * ✅ CRÍTICO: Limpia y valida el número de teléfono
+   */
+  const limpiarTelefono = (telefono) => {
+    if (!telefono) return null;
+    
+    // Remover espacios, guiones, paréntesis y el símbolo +
+    const limpio = telefono.toString().replace(/[\s\-\(\)\+]/g, '');
+    
+    // Verificar que solo contenga números
+    if (!/^\d+$/.test(limpio)) {
+      console.warn('⚠️ Teléfono contiene caracteres no numéricos:', telefono);
+      return null;
+    }
+
+    return limpio;
+  };
+
+  /**
+   * ✅ CRÍTICO: Obtiene el teléfono del colono con prioridad de campos
+   */
+  const obtenerTelefono = (item) => {
+    // Prioridad: colonoTelefono > telefono > vendedorTelefono
+    const telefono = item.colonoTelefono || item.telefono || item.vendedorTelefono;
+    
+    if (!telefono) {
+      console.error('❌ Sin teléfono para item:', {
+        id: item.id,
+        nombre: item.nombre,
+        colonoNombre: item.colonoNombre,
+        colonoId: item.colonoId
+      });
+      return null;
+    }
+
+    return limpiarTelefono(telefono);
+  };
+
+  /**
+   * Agrupa los productos por colono
    */
   const agruparPorColono = () => {
     const grupos = {};
@@ -35,8 +78,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
         grupos[colonoId] = {
           colonoId: colonoId,
           colonoNombre: item.colonoNombre || 'Vendedor desconocido',
-          // ✅ BUSCA EN TODAS LAS POSIBILIDADES
-          colonoTelefono: item.colonoTelefono || item.telefono || item.vendedorTelefono || '',
+          colonoTelefono: obtenerTelefono(item),
           productos: []
         };
       }
@@ -47,27 +89,38 @@ const CartDrawer = ({ isOpen, onClose }) => {
     return Object.values(grupos);
   };
 
+  /**
+   * Calcula el subtotal de un grupo de productos
+   */
   const calcularSubtotalGrupo = (productos) => {
     return productos.reduce((total, item) => {
-      // Ajuste por si cantidad viene como quantity o cantidad
-      const q = item.cantidad || item.quantity || 1;
-      return total + (item.precio * q);
+      return total + (item.precio * item.cantidad);
     }, 0);
   };
 
+  /**
+   * Genera mensaje de WhatsApp para un colono específico
+   */
   const generarMensajeColono = (grupo) => {
     let mensaje = `🌱 *PEDIDO - FERIA VIRTUAL ESPERANZA*\n\n`;
+    
     mensaje += `Hola ${grupo.colonoNombre}! 👋\n\n`;
     
-    if (clienteData.nombre) mensaje += `👤 *Cliente:* ${clienteData.nombre}\n`;
-    if (clienteData.telefono) mensaje += `📱 *Teléfono:* ${clienteData.telefono}\n`;
-    if (clienteData.direccion) mensaje += `📍 *Dirección:* ${clienteData.direccion}\n`;
-    mensaje += '\n📦 *PRODUCTOS:*\n';
+    if (clienteData.nombre) {
+      mensaje += `👤 *Cliente:* ${clienteData.nombre}\n`;
+    }
+    if (clienteData.telefono) {
+      mensaje += `📱 *Teléfono:* ${clienteData.telefono}\n`;
+    }
+    if (clienteData.direccion) {
+      mensaje += `📍 *Dirección:* ${clienteData.direccion}\n`;
+    }
+    mensaje += '\n';
 
+    mensaje += `📦 *PRODUCTOS:*\n`;
     grupo.productos.forEach(item => {
-      const q = item.cantidad || item.quantity || 1;
-      const precioTotal = (item.precio * q) / 100;
-      mensaje += `• ${q}x ${item.nombre}\n`;
+      const precioTotal = (item.precio * item.cantidad) / 100;
+      mensaje += `• ${item.cantidad}x ${item.nombre}\n`;
       mensaje += `  $${(item.precio / 100).toFixed(2)} c/u = $${precioTotal.toFixed(2)}\n`;
     });
 
@@ -79,30 +132,47 @@ const CartDrawer = ({ isOpen, onClose }) => {
   };
 
   /**
-   * ✅ MEJORADO: Limpieza de número y prefijo 549
+   * ✅ CRÍTICO: Envía pedido a un colono (SIN confirmación bloqueante)
    */
   const enviarPedidoColono = (grupo) => {
+    // Validar teléfono
     if (!grupo.colonoTelefono) {
-      alert(`⚠️ No se pudo enviar el pedido. El vendedor "${grupo.colonoNombre}" no cargó su teléfono en este producto.`);
-      return;
+      alert(`❌ No se encontró número de WhatsApp de ${grupo.colonoNombre}\n\nPor favor contactá al vendedor para obtener su número.`);
+      return false;
     }
 
-    const mensaje = generarMensajeColono(grupo);
-    // Limpia todo lo que no sea número
-    let numLimpio = grupo.colonoTelefono.replace(/\D/g, '');
-    
-    // Si el número empieza con 0, se lo quitamos
-    if (numLimpio.startsWith('0')) numLimpio = numLimpio.substring(1);
-    
-    // Si no tiene el 54, se lo ponemos (Formato internacional)
-    const whatsappNumber = numLimpio.startsWith('54') ? numLimpio : `54${numLimpio}`;
-    
-    // Usamos api.whatsapp para mejor compatibilidad en móviles
-    const whatsappUrl = `https://api.whatsapp.com{whatsappNumber}&text=${mensaje}`;
-    
-    window.open(whatsappUrl, '_blank');
+    try {
+      const mensaje = generarMensajeColono(grupo);
+      
+      // ✅ Para Argentina, agregar 549 si no tiene código de país
+      let numeroFinal = grupo.colonoTelefono;
+      if (!numeroFinal.startsWith('549')) {
+        numeroFinal = '549' + numeroFinal;
+      }
+
+      // ✅ CRÍTICO: Crear URL de WhatsApp
+      const whatsappUrl = `https://wa.me/${numeroFinal}?text=${mensaje}`;
+      
+      console.log('📱 Abriendo WhatsApp:', {
+        colono: grupo.colonoNombre,
+        telefono: numeroFinal,
+        url: whatsappUrl.substring(0, 100) + '...'
+      });
+
+      // ✅ CRÍTICO: Abrir inmediatamente (sin confirm)
+      window.open(whatsappUrl, '_blank');
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Error al abrir WhatsApp:', error);
+      alert(`Error al abrir WhatsApp para ${grupo.colonoNombre}`);
+      return false;
+    }
   };
 
+  /**
+   * ✅ CRÍTICO: Envía todos los pedidos (SIN confirmaciones bloqueantes)
+   */
   const enviarTodosPedidos = () => {
     const grupos = agruparPorColono();
     
@@ -111,145 +181,327 @@ const CartDrawer = ({ isOpen, onClose }) => {
       return;
     }
 
-    if (grupos.length > 1) {
+    // Filtrar grupos que NO tienen teléfono
+    const gruposSinTelefono = grupos.filter(g => !g.colonoTelefono);
+    const gruposConTelefono = grupos.filter(g => g.colonoTelefono);
+
+    if (gruposSinTelefono.length > 0) {
+      alert(
+        `⚠️ Algunos vendedores no tienen WhatsApp registrado:\n\n` +
+        gruposSinTelefono.map(g => `• ${g.colonoNombre}`).join('\n') +
+        `\n\nContactalos directamente para completar esos pedidos.`
+      );
+    }
+
+    if (gruposConTelefono.length === 0) {
+      return;
+    }
+
+    // ✅ CRÍTICO: Advertencia solo si son múltiples vendedores
+    if (gruposConTelefono.length > 1) {
       const confirmar = confirm(
-        `Se abrirán ${grupos.length} conversaciones de WhatsApp (una para cada vendedor).\n\n` +
-        grupos.map(g => `• ${g.colonoNombre}`).join('\n') +
+        `Se abrirán ${gruposConTelefono.length} conversaciones de WhatsApp:\n\n` +
+        gruposConTelefono.map(g => `• ${g.colonoNombre}`).join('\n') +
         '\n\n¿Continuar?'
       );
+      
       if (!confirmar) return;
     }
 
-    grupos.forEach((grupo, index) => {
+    // ✅ Enviar a cada colono con delay para que no se bloqueen
+    let enviados = 0;
+    gruposConTelefono.forEach((grupo, index) => {
       setTimeout(() => {
-        enviarPedidoColono(grupo);
-      }, index * 800); // Un poquito más de delay para evitar bloqueos del navegador
+        const exito = enviarPedidoColono(grupo);
+        if (exito) enviados++;
+      }, index * 800); // 800ms entre cada ventana
     });
 
+    // ✅ CRÍTICO: Preguntar si vaciar carrito DESPUÉS de enviar (sin bloquear)
     setTimeout(() => {
-      if (confirm('¿Los mensajes se abrieron correctamente? Si es así, ¿deseás vaciar el carrito?')) {
+      const vaciar = confirm(
+        `✅ ${enviados} ${enviados === 1 ? 'pedido enviado' : 'pedidos enviados'}!\n\n¿Deseas vaciar el carrito?`
+      );
+      
+      if (vaciar) {
         clearCart();
         onClose();
       }
-    }, grupos.length * 1000);
+    }, gruposConTelefono.length * 800 + 1000);
+  };
+
+  const toggleExpandColono = (colonoId) => {
+    setExpandedColonos(prev => ({
+      ...prev,
+      [colonoId]: !prev[colonoId]
+    }));
   };
 
   const handleClienteChange = (campo, valor) => {
-    setClienteData(prev => ({ ...prev, [campo]: valor }));
+    setClienteData(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
   };
 
+  const totalItems = getTotalItems();
+  const totalPrecio = getTotal();
   const gruposColonos = agruparPorColono();
 
   return (
     <>
+      {/* OVERLAY */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 z-[9998] backdrop-blur-sm transition-opacity" onClick={onClose} />
+        <div
+          className="fixed inset-0 bg-black/50 z-[9998] transition-opacity duration-300"
+          onClick={onClose}
+        />
       )}
 
-      <div className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-[9999] transform transition-transform duration-300 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        
-        {/* HEADER */}
-        <div className="bg-green-600 text-white p-5 flex items-center justify-between shadow-md">
+      {/* DRAWER */}
+      <div
+        className={`
+          fixed top-0 right-0 h-full w-full md:w-96 
+          bg-white shadow-2xl 
+          z-[9999]
+          transform transition-all duration-300 ease-in-out
+          flex flex-col
+          ${isOpen 
+            ? 'translate-x-0 opacity-100 visible' 
+            : 'translate-x-full opacity-0 invisible'
+          }
+        `}
+      >
+        {/* Header del drawer */}
+        <div className="bg-green-600 text-white p-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-lg">
-              <ShoppingCart className="w-6 h-6" />
-            </div>
+            <ShoppingCart className="w-6 h-6" />
             <div>
-              <h2 className="text-lg font-bold">Tu Pedido</h2>
-              <p className="text-xs text-green-100 opacity-80">{getTotalItems()} productos seleccionados</p>
+              <h2 className="text-lg font-bold">Mi Carrito</h2>
+              <p className="text-sm text-green-100">
+                {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
+                {gruposColonos.length > 1 && ` • ${gruposColonos.length} vendedores`}
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-black/10 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            aria-label="Cerrar carrito"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* CONTENIDO */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Contenido scrolleable */}
+        <div className="flex-1 overflow-y-auto p-4">
           {cartItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-              <ShoppingCart size={64} strokeWidth={1} className="mb-4 opacity-20" />
-              <p className="text-lg">Tu carrito está vacío</p>
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <ShoppingCart className="w-20 h-20 text-gray-300 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                Tu carrito está vacío
+              </h3>
+              <p className="text-gray-500 mb-4">
+                Agrega productos desde el catálogo
+              </p>
+              <button
+                onClick={onClose}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Ver productos
+              </button>
             </div>
           ) : (
-            <>
-              {/* SECCIÓN DATOS CLIENTE */}
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                   <User size={14}/> Tus Datos (Para el envío)
-                </h3>
-                <input 
-                  type="text" placeholder="Tu nombre" 
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 outline-none transition-all"
-                  value={clienteData.nombre} onChange={(e) => handleClienteChange('nombre', e.target.value)}
-                />
-                <input 
-                  type="tel" placeholder="Tu teléfono" 
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 outline-none transition-all"
-                  value={clienteData.telefono} onChange={(e) => handleClienteChange('telefono', e.target.value)}
-                />
-                <input 
-                  type="text" placeholder="Tu dirección (Puerto Esperanza)" 
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 outline-none transition-all"
-                  value={clienteData.direccion} onChange={(e) => handleClienteChange('direccion', e.target.value)}
-                />
-              </div>
+            <div className="space-y-4">
+              {gruposColonos.map((grupo) => {
+                const isExpanded = expandedColonos[grupo.colonoId] !== false;
+                const subtotal = calcularSubtotalGrupo(grupo.productos);
 
-              {/* LISTA POR VENDEDOR */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider ml-1">Productos</h3>
-                {gruposColonos.map((grupo) => (
-                  <div key={grupo.colonoId} className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                    <div className="bg-green-50 p-3 flex justify-between items-center border-b border-green-100">
-                      <span className="font-bold text-green-800 flex items-center gap-2 text-sm">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                        Vendedor: {grupo.colonoNombre}
-                      </span>
-                      <span className="text-xs font-bold text-green-600 bg-white px-2 py-1 rounded-lg">
-                        ${(calcularSubtotalGrupo(grupo.productos) / 100).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="p-2 space-y-2 bg-white">
-                      {grupo.productos.map((item) => (
-                        <div key={item.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-xl">
-                          <img src={item.imagen} alt={item.nombre} className="w-12 h-12 rounded-lg object-cover" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-gray-800 truncate">{item.nombre}</p>
-                            <p className="text-xs text-gray-500">${(item.precio / 100).toFixed(2)} x {item.cantidad || item.quantity}</p>
+                return (
+                  <div key={grupo.colonoId} className="border-2 border-gray-200 rounded-xl overflow-hidden">
+                    {/* Header del grupo */}
+                    <div 
+                      className="bg-gradient-to-r from-green-50 to-green-100 p-3 cursor-pointer hover:from-green-100 hover:to-green-150 transition-colors"
+                      onClick={() => toggleExpandColono(grupo.colonoId)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-white" />
                           </div>
-                          <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 p-1">
-                            <button onClick={() => decrementQuantity(item.id)} className="p-1 hover:bg-gray-100 rounded-md text-green-600"><Minus size={14}/></button>
-                            <span className="text-sm font-bold w-4 text-center">{item.cantidad || item.quantity}</span>
-                            <button onClick={() => incrementQuantity(item.id)} className="p-1 hover:bg-gray-100 rounded-md text-green-600"><Plus size={14}/></button>
+                          <div>
+                            <p className="font-bold text-gray-800 text-sm">{grupo.colonoNombre}</p>
+                            <p className="text-xs text-gray-600">
+                              {grupo.productos.length} {grupo.productos.length === 1 ? 'producto' : 'productos'}
+                            </p>
                           </div>
-                          <button onClick={() => removeFromCart(item.id)} className="p-2 text-red-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
                         </div>
-                      ))}
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-green-700 text-sm">
+                            ${(subtotal / 100).toFixed(2)}
+                          </span>
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Productos del grupo */}
+                    {isExpanded && (
+                      <div className="p-3 space-y-3 bg-white">
+                        {grupo.productos.map((item) => (
+                          <div
+                            key={item.id}
+                            className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                          >
+                            <div className="flex gap-3">
+                              <div className="w-16 h-16 flex-shrink-0 bg-white rounded-lg overflow-hidden border border-gray-200">
+                                {item.imagen ? (
+                                  <img
+                                    src={item.imagen}
+                                    alt={item.nombre}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <ShoppingCart className="w-6 h-6 text-gray-300" />
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-gray-800 text-sm truncate mb-1">
+                                  {item.nombre}
+                                </h3>
+                                <p className="text-green-600 font-bold text-sm mb-2">
+                                  ${(item.precio / 100).toFixed(2)} c/u
+                                </p>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => decrementQuantity(item.id)}
+                                    className="w-7 h-7 flex items-center justify-center bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+
+                                  <span className="w-8 text-center font-bold text-sm">
+                                    {item.cantidad}
+                                  </span>
+
+                                  <button
+                                    onClick={() => incrementQuantity(item.id)}
+                                    disabled={item.cantidad >= item.stock}
+                                    className="w-7 h-7 flex items-center justify-center bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => removeFromCart(item.id)}
+                                    className="ml-auto w-7 h-7 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+
+                                <p className="text-xs text-gray-600 mt-1">
+                                  Subtotal: <span className="font-semibold">${((item.precio * item.cantidad) / 100).toFixed(2)}</span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Botón individual por vendedor */}
+                        <button
+                          onClick={() => enviarPedidoColono(grupo)}
+                          disabled={!grupo.colonoTelefono}
+                          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 px-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <Send className="w-4 h-4" />
+                          Pedir a {grupo.colonoNombre}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            </>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* FOOTER */}
+        {/* Footer */}
         {cartItems.length > 0 && (
-          <div className="p-5 border-t border-gray-100 bg-white space-y-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-            <div className="flex justify-between items-end">
-              <span className="text-gray-400 font-medium">Total General:</span>
-              <span className="text-3xl font-black text-green-600">${(getTotal() / 100).toFixed(2)}</span>
+          <div className="border-t border-gray-200 p-4 space-y-4 flex-shrink-0">
+            {/* Datos del cliente */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-gray-700 text-sm">
+                Tus datos (opcional)
+              </h3>
+              <input
+                type="text"
+                placeholder="Tu nombre"
+                value={clienteData.nombre}
+                onChange={(e) => handleClienteChange('nombre', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <input
+                type="tel"
+                placeholder="Tu teléfono"
+                value={clienteData.telefono}
+                onChange={(e) => handleClienteChange('telefono', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <input
+                type="text"
+                placeholder="Dirección de entrega"
+                value={clienteData.direccion}
+                onChange={(e) => handleClienteChange('direccion', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
             </div>
-            <button
-              onClick={enviarTodosPedidos}
-              className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-green-100 transition-all active:scale-95"
-            >
-              <Send size={20} />
-              Finalizar Pedido por WhatsApp
-            </button>
-            <button onClick={() => { if(confirm('¿Vaciar todo el carrito?')) clearCart() }} className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors py-2 font-medium">
-              Vaciar carrito
-            </button>
+
+            {/* Total general */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center justify-between border-t border-gray-300 pt-2">
+                <span className="text-lg font-bold text-gray-800">Total General:</span>
+                <span className="text-2xl font-bold text-green-600">
+                  ${(totalPrecio / 100).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="space-y-2">
+              <button
+                onClick={enviarTodosPedidos}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-lg"
+              >
+                <Send className="w-5 h-5" />
+                {gruposColonos.length > 1 
+                  ? `Enviar Todos los Pedidos (${gruposColonos.length})`
+                  : 'Finalizar Pedido por WhatsApp'
+                }
+              </button>
+
+              {gruposColonos.length > 1 && (
+                <p className="text-xs text-center text-gray-500">
+                  Se abrirán {gruposColonos.length} conversaciones, una por cada vendedor
+                </p>
+              )}
+
+              <button
+                onClick={() => {
+                  if (confirm('¿Estás seguro de vaciar el carrito?')) {
+                    clearCart();
+                  }
+                }}
+                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Vaciar carrito
+              </button>
+            </div>
           </div>
         )}
       </div>
