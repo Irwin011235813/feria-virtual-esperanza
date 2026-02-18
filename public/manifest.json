@@ -1,0 +1,15 @@
+{
+  "short_name": "Feria Esperanza",
+  "name": "Feria Virtual Puerto Esperanza",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#16a34a",
+  "background_color": "#ffffff"
+}
