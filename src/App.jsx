@@ -23,6 +23,10 @@ import { CartProvider } from "./context/CartContext";
 // 🔧 IMPORT TEMPORAL - Eliminar después de usar
 import ActualizarProductos from "./components/utils/ActualizarProductos";
 
+// ✅ Banner de instalación PWA
+import InstallBanner from "./components/InstallBanner";
+
+
 function AppContent({ user, loadingAuth }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -104,6 +108,9 @@ function AppContent({ user, loadingAuth }) {
           <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
         </>
       )}
+
+      {/* ✅ Banner PWA - solo se muestra si no está instalada y no es login */}
+      {!hideHeaderAndNav && <InstallBanner />}
 
     </div>
   );
