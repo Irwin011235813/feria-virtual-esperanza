@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fondo circular verde oscuro -->
+  <circle cx="256" cy="256" r="256" fill="#2D6A4F"/>
+
+  <!-- Canasta / base -->
+  <path d="M148 310 Q256 370 364 310 L340 390 Q256 430 172 390 Z" fill="#A0522D"/>
+  <path d="M148 310 L172 390" stroke="#7A3B1E" stroke-width="6" fill="none"/>
+  <path d="M364 310 L340 390" stroke="#7A3B1E" stroke-width="6" fill="none"/>
+  <!-- Líneas de tejido -->
+  <path d="M160 330 Q256 385 352 330" stroke="#7A3B1E" stroke-width="4" fill="none"/>
+  <path d="M164 350 Q256 402 348 350" stroke="#7A3B1E" stroke-width="4" fill="none"/>
+  <path d="M170 370 Q256 415 342 370" stroke="#7A3B1E" stroke-width="4" fill="none"/>
+
+  <!-- Tallo principal -->
+  <path d="M256 310 Q252 240 256 170" stroke="#52B788" stroke-width="12" stroke-linecap="round" fill="none"/>
+
+  <!-- Hoja izquierda -->
+  <path d="M256 240 Q200 200 185 155 Q230 165 256 240Z" fill="#74C69D"/>
+  <path d="M256 240 Q218 198 185 155" stroke="#52B788" stroke-width="3" fill="none"/>
+
+  <!-- Hoja derecha -->
+  <path d="M256 210 Q315 175 328 128 Q282 142 256 210Z" fill="#95D5B2"/>
+  <path d="M256 210 Q298 173 328 128" stroke="#74C69D" stroke-width="3" fill="none"/>
+
+  <!-- Brote superior / flor -->
+  <ellipse cx="256" cy="158" rx="22" ry="32" fill="#52B788"/>
+  <ellipse cx="235" cy="148" rx="16" ry="24" transform="rotate(-30 235 148)" fill="#74C69D"/>
+  <ellipse cx="277" cy="148" rx="16" ry="24" transform="rotate(30 277 148)" fill="#74C69D"/>
+  <!-- Centro del brote -->
+  <circle cx="256" cy="155" r="10" fill="#FFD166"/>
+
+  <!-- Pequeños frutos / productos en la canasta -->
+  <circle cx="210" cy="302" r="14" fill="#E63946"/>
+  <circle cx="240" cy="296" r="16" fill="#F4A261"/>
+  <circle cx="272" cy="296" r="14" fill="#E63946"/>
+  <circle cx="300" cy="302" r="12" fill="#FFD166"/>
+  <circle cx="256" cy="292" r="10" fill="#52B788"/>
+</svg>

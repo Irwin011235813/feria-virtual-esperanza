@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="manifest" href="/manifest.json">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   
   <!-- SEO Meta Tags -->
@@ -15,6 +14,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Feria Esperanza" />
+
+  <!-- ✅ LÍNEA 1: Manifest (faltaba esto) -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- ✅ LÍNEA 2: Icono para iOS (faltaba esto) -->
+  <link rel="apple-touch-icon" href="/logo192.png" />
   
   <!-- Open Graph -->
   <meta property="og:title" content="Feria Virtual Esperanza" />
@@ -22,20 +27,10 @@
   <meta property="og:type" content="website" />
   
   <title>Feria Virtual Esperanza</title>
-  <script type="module" crossorigin src="/assets/index-DVDcS8iL.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DEQ2n7kj.css">
+  <script type="module" crossorigin src="/assets/index-Bkm5-OAZ.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-3zZ1xCA1.css">
 </head>
 <body>
-  <div id="root"></div>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('✅ Service Worker registrado', reg))
-        .catch(err => console.log('❌ Error al registrar SW', err));
-    });
-  }
-</script>
-
+  <div id="root"></div>
 </body>
 </html>

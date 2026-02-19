@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <!-- Fondo Circular -->
+  <circle cx="256" cy="256" r="256" fill="#74ACDF" />
+
+  <!-- Canasta de Mimbre -->
+  <path d="M140 320 L160 420 H352 L372 320 Z" fill="#8B4513" />
+  <rect x="140" y="320" width="232" height="20" rx="10" fill="#A0522D" />
+
+  <!-- Tallo -->
+  <rect x="246" y="240" width="20" height="100" fill="#4B7D2F" />
+
+  <!-- Pétalos del Girasol -->
+  <circle cx="256" cy="210" r="70" fill="#FFD700" />
+  <path d="M256 120 L275 160 H237 Z" fill="#FFD700" />
+  <path d="M256 300 L275 260 H237 Z" fill="#FFD700" />
+  <path d="M346 210 L306 229 V191 Z" fill="#FFD700" />
+  <path d="M166 210 L206 229 V191 Z" fill="#FFD700" />
+
+  <!-- Centro del Girasol -->
+  <circle cx="256" cy="210" r="35" fill="#5D2E0A" />
+</svg>
