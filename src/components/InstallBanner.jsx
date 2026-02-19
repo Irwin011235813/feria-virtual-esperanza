@@ -1,363 +1,280 @@
 // ============================================
 // InstallBanner.jsx — Sistema de Invitación a la Instalación PWA
 // Feria Virtual Esperanza
-// Integración: importar en App.jsx y colocar <InstallBanner /> al final del JSX
+// Estrategia doble:
+//   - Si beforeinstallprompt dispara → botón lanza el prompt nativo
+//   - Si NO dispara (común en móvil) → muestra instrucciones manuales
 // ============================================
 
 import { useState, useEffect } from 'react';
 
-// ── Constantes de localStorage ──────────────────────────────────────────────
-const DISMISSED_KEY = 'feria_install_dismissed_at';
-const COOLDOWN_HOURS = 24; // Horas antes de volver a mostrar tras cerrar con "X"
+const DISMISSED_KEY  = 'feria_install_dismissed_at';
+const COOLDOWN_HOURS = 24;
 
 export default function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [visible, setVisible]               = useState(false);
   const [isIOS, setIsIOS]                   = useState(false);
-  const [isInstalled, setIsInstalled]       = useState(false);
+  const [showManual, setShowManual]         = useState(false);
   const [installing, setInstalling]         = useState(false);
 
   useEffect(() => {
-    // ── 1. Detectar si ya está instalada como standalone ──────────────────
-    const standalone = window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true; // Safari iOS
-    if (standalone) {
-      setIsInstalled(true);
-      return; // No mostrar nada si ya está instalada
-    }
+    // ── 1. Ya está instalada como standalone → no mostrar nada ────────────
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+    if (isStandalone) return;
 
-    // ── 2. Detectar iOS (Safari no soporta beforeinstallprompt) ───────────
-    const ua = window.navigator.userAgent;
-    const ios = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
-    setIsIOS(ios);
-
-    // ── 3. Verificar cooldown del dismiss ─────────────────────────────────
+    // ── 2. Verificar cooldown ─────────────────────────────────────────────
     const shouldShow = () => {
       const dismissedAt = localStorage.getItem(DISMISSED_KEY);
       if (!dismissedAt) return true;
       const hoursSince = (Date.now() - Number(dismissedAt)) / (1000 * 60 * 60);
       return hoursSince >= COOLDOWN_HOURS;
     };
+    if (!shouldShow()) return;
+
+    // ── 3. Detectar iOS ───────────────────────────────────────────────────
+    const ua  = window.navigator.userAgent;
+    const ios = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
+    setIsIOS(ios);
 
     if (ios) {
-      // iOS: mostrar instrucciones de instalación manual si aplica
-      if (shouldShow()) {
-        setTimeout(() => setVisible(true), 2500); // Aparece tras 2.5s
-      }
+      setTimeout(() => setVisible(true), 2500);
       return;
     }
 
-    // ── 4. Capturar beforeinstallprompt (Android / Desktop Chrome) ────────
+    // ── 4. Android/Desktop: esperar beforeinstallprompt ───────────────────
     const handler = (e) => {
-      e.preventDefault(); // Evita el banner automático del navegador
+      e.preventDefault();
       setDeferredPrompt(e);
-      if (shouldShow()) {
-        setTimeout(() => setVisible(true), 2500);
-      }
+      setTimeout(() => setVisible(true), 2500);
     };
-
     window.addEventListener('beforeinstallprompt', handler);
 
-    // ── 5. Detectar instalación exitosa ───────────────────────────────────
-    window.addEventListener('appinstalled', () => {
+    // ── 5. Fallback: si en 6s no disparó el evento → instrucciones manuales
+    const fallbackTimer = setTimeout(() => {
+      setDeferredPrompt((current) => {
+        if (!current) {
+          setShowManual(true);
+          setVisible(true);
+        }
+        return current;
+      });
+    }, 6000);
+
+    // ── 6. Detectar instalación exitosa ───────────────────────────────────
+    const installedHandler = () => {
       setVisible(false);
       setDeferredPrompt(null);
-      console.log('✅ Feria Esperanza instalada correctamente');
-    });
+    };
+    window.addEventListener('appinstalled', installedHandler);
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', installedHandler);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
-  // ── Función: disparar el prompt nativo ────────────────────────────────────
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     setInstalling(true);
-
     try {
-      await deferredPrompt.prompt(); // Lanza el diálogo nativo del navegador
+      await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-
-      if (outcome === 'accepted') {
-        console.log('✅ Usuario aceptó la instalación');
-        setVisible(false);
-      } else {
-        console.log('❌ Usuario canceló la instalación');
-      }
+      console.log(outcome === 'accepted' ? '✅ Instaló la app' : '❌ Canceló');
+      setVisible(false);
     } catch (err) {
-      console.error('Error al lanzar el prompt:', err);
+      console.error('Error al lanzar prompt:', err);
     } finally {
       setDeferredPrompt(null);
       setInstalling(false);
     }
   };
 
-  // ── Función: cerrar banner y guardar timestamp ────────────────────────────
   const handleDismiss = () => {
     setVisible(false);
     localStorage.setItem(DISMISSED_KEY, String(Date.now()));
   };
 
-  // No renderizar si está instalada o no hay razón para mostrar
-  if (isInstalled || !visible) return null;
+  if (!visible) return null;
+
+  const showNativeButton   = !isIOS && !showManual && deferredPrompt;
+  const showAndroidManual  = !isIOS && (showManual || !deferredPrompt);
+  const showIOSInstructions = isIOS;
 
   return (
     <>
-      {/* ── Estilos inyectados ── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
 
-        .feria-banner-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.35);
+        .fb-overlay {
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,0.4);
           z-index: 9998;
-          animation: fadeInOverlay 0.3s ease;
+          animation: fb-fade .3s ease;
         }
+        @keyframes fb-fade { from{opacity:0} to{opacity:1} }
 
-        @keyframes fadeInOverlay {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-
-        .feria-banner {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
+        .fb-banner {
+          position: fixed; bottom: 0; left: 0; right: 0;
           z-index: 9999;
-          margin: 0 12px 12px;
-          background: linear-gradient(135deg, #74ACDF 0%, #4A90C4 100%);
+          margin: 0 12px 16px;
+          background: linear-gradient(145deg, #74ACDF 0%, #3d8fc4 100%);
           border-radius: 20px;
-          padding: 20px 16px 20px 20px;
-          box-shadow:
-            0 -4px 32px rgba(0,0,0,0.18),
-            0 2px 8px rgba(0,0,0,0.12),
-            inset 0 1px 0 rgba(255,255,255,0.25);
+          padding: 18px 16px 18px 18px;
+          box-shadow: 0 -4px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.25);
           font-family: 'Nunito', sans-serif;
-          animation: slideUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+          animation: fb-slide .45s cubic-bezier(.34,1.56,.64,1);
           border: 1px solid rgba(255,255,255,0.3);
         }
-
-        @keyframes slideUp {
-          from {
-            transform: translateY(120%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
+        @keyframes fb-slide {
+          from { transform: translateY(120%); opacity: 0 }
+          to   { transform: translateY(0);    opacity: 1 }
         }
 
-        .feria-banner__close {
-          position: absolute;
-          top: 10px;
-          right: 12px;
+        .fb-close {
+          position: absolute; top: 10px; right: 12px;
           background: rgba(255,255,255,0.2);
-          border: none;
-          color: white;
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          cursor: pointer;
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.2s;
-          line-height: 1;
+          border: none; color: white;
+          width: 28px; height: 28px; border-radius: 50%;
+          cursor: pointer; font-size: 13px;
+          display: flex; align-items: center; justify-content: center;
+          transition: background .2s;
         }
+        .fb-close:hover { background: rgba(255,255,255,0.35); }
 
-        .feria-banner__close:hover {
-          background: rgba(255,255,255,0.35);
-        }
+        .fb-body { display: flex; align-items: flex-start; gap: 14px; }
 
-        .feria-banner__body {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-
-        .feria-banner__icon {
-          width: 62px;
-          height: 62px;
-          border-radius: 14px;
-          object-fit: cover;
-          flex-shrink: 0;
+        .fb-icon {
+          width: 58px; height: 58px; border-radius: 14px;
+          object-fit: cover; flex-shrink: 0;
           box-shadow: 0 4px 12px rgba(0,0,0,0.25);
           border: 2px solid rgba(255,255,255,0.4);
         }
+        .fb-content { flex: 1; min-width: 0; }
 
-        .feria-banner__content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .feria-banner__title {
-          color: #FFFFFF;
-          font-size: 15px;
-          font-weight: 800;
-          margin: 0 0 4px;
-          line-height: 1.25;
+        .fb-title {
+          color: #fff; font-size: 15px; font-weight: 800;
+          margin: 0 0 3px; line-height: 1.3;
           text-shadow: 0 1px 2px rgba(0,0,0,0.15);
         }
-
-        .feria-banner__subtitle {
-          color: rgba(255,255,255,0.88);
-          font-size: 12.5px;
-          font-weight: 600;
-          margin: 0 0 14px;
-          line-height: 1.4;
+        .fb-sub {
+          color: rgba(255,255,255,0.9); font-size: 12.5px;
+          font-weight: 600; margin: 0 0 12px; line-height: 1.45;
         }
 
-        .feria-banner__btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: #FFD700;
-          color: #1a3a5c;
-          border: none;
-          border-radius: 10px;
+        .fb-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #FFD700; color: #1a3a5c;
+          border: none; border-radius: 10px;
           padding: 9px 18px;
-          font-size: 13.5px;
-          font-weight: 800;
+          font-size: 13.5px; font-weight: 800;
           font-family: 'Nunito', sans-serif;
           cursor: pointer;
-          transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
-          box-shadow: 0 3px 10px rgba(255,215,0,0.4);
-          white-space: nowrap;
+          transition: transform .15s, box-shadow .15s;
+          box-shadow: 0 3px 10px rgba(255,215,0,.4);
         }
+        .fb-btn:hover { background:#FFE033; transform:translateY(-1px); }
+        .fb-btn:disabled { opacity:.7; cursor:not-allowed; transform:none; }
 
-        .feria-banner__btn:hover {
-          background: #FFE033;
-          transform: translateY(-1px);
-          box-shadow: 0 5px 14px rgba(255,215,0,0.5);
-        }
-
-        .feria-banner__btn:active {
-          transform: translateY(0);
-        }
-
-        .feria-banner__btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        /* ── iOS specific ── */
-        .feria-banner--ios .feria-banner__ios-hint {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
+        .fb-steps {
           background: rgba(255,255,255,0.15);
-          border-radius: 10px;
+          border-radius: 12px;
           padding: 10px 12px;
-          margin-top: 4px;
+          display: flex; flex-direction: column; gap: 8px;
         }
-
-        .feria-banner__ios-icon {
-          font-size: 20px;
-          flex-shrink: 0;
-          margin-top: 1px;
-        }
-
-        .feria-banner__ios-text {
+        .fb-step {
+          display: flex; align-items: center; gap: 10px;
           color: rgba(255,255,255,0.95);
-          font-size: 12.5px;
-          font-weight: 600;
-          line-height: 1.5;
+          font-size: 12.5px; font-weight: 600; line-height: 1.4;
           margin: 0;
         }
-
-        .feria-banner__ios-text strong {
-          color: #FFD700;
+        .fb-step-num {
+          background: #FFD700; color: #1a3a5c;
+          width: 22px; height: 22px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 800; flex-shrink: 0;
         }
-
-        /* Flecha iOS apuntando hacia abajo */
-        .feria-banner__ios-arrow {
-          position: absolute;
-          bottom: -10px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 0;
-          height: 0;
-          border-left: 10px solid transparent;
-          border-right: 10px solid transparent;
-          border-top: 10px solid #4A90C4;
-        }
+        .fb-step strong { color: #FFD700; }
 
         @media (min-width: 480px) {
-          .feria-banner {
-            max-width: 480px;
-            left: 50%;
-            right: auto;
-            transform: translateX(-50%);
-            margin: 0 0 20px;
+          .fb-banner {
+            max-width: 460px; left: 50%; right: auto;
+            transform: translateX(-50%); margin: 0 0 20px;
           }
-          @keyframes slideUp {
-            from { transform: translateX(-50%) translateY(120%); opacity: 0; }
-            to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+          @keyframes fb-slide {
+            from { transform: translateX(-50%) translateY(120%); opacity: 0 }
+            to   { transform: translateX(-50%) translateY(0);    opacity: 1 }
           }
         }
       `}</style>
 
-      {/* Overlay de fondo */}
-      <div className="feria-banner-overlay" onClick={handleDismiss} />
+      <div className="fb-overlay" onClick={handleDismiss} />
 
-      {/* Banner principal */}
-      <div className={`feria-banner${isIOS ? ' feria-banner--ios' : ''}`} role="dialog" aria-label="Instalar app Feria Esperanza">
+      <div className="fb-banner" role="dialog" aria-label="Instalar app Feria Esperanza">
 
-        {/* Botón cerrar */}
-        <button
-          className="feria-banner__close"
-          onClick={handleDismiss}
-          aria-label="Cerrar"
-        >
-          ✕
-        </button>
+        <button className="fb-close" onClick={handleDismiss} aria-label="Cerrar">✕</button>
 
-        <div className="feria-banner__body">
-          {/* Ícono de la app */}
-          <img
-            src="/logo192.png"
-            alt="Feria Virtual Esperanza"
-            className="feria-banner__icon"
-          />
+        <div className="fb-body">
+          <img src="/logo192.png" alt="Feria Esperanza" className="fb-icon" />
 
-          <div className="feria-banner__content">
-            <p className="feria-banner__title">
-              🌻 ¡Llevá la Feria en tu bolsillo!
-            </p>
+          <div className="fb-content">
+            <p className="fb-title">🌻 ¡Llevá la Feria en tu bolsillo!</p>
 
-            {!isIOS ? (
-              /* ── Android / Desktop: botón de instalación nativo ── */
+            {/* Caso A: Chrome con prompt nativo disponible */}
+            {showNativeButton && (
               <>
-                <p className="feria-banner__subtitle">
-                  Instalá la app para acceder más rápido, sin internet y sin abrir el navegador.
-                </p>
-                <button
-                  className="feria-banner__btn"
-                  onClick={handleInstallClick}
-                  disabled={installing}
-                >
+                <p className="fb-sub">Instalá la app para acceder más rápido, sin abrir el navegador.</p>
+                <button className="fb-btn" onClick={handleInstallClick} disabled={installing}>
                   {installing ? '⏳ Instalando...' : '⬇️ Instalar gratis'}
                 </button>
               </>
-            ) : (
-              /* ── iOS: instrucciones manuales ── */
+            )}
+
+            {/* Caso B: Android sin prompt (instrucciones manuales) */}
+            {showAndroidManual && (
               <>
-                <p className="feria-banner__subtitle">
-                  Agregala a tu pantalla de inicio para una mejor experiencia.
-                </p>
-                <div className="feria-banner__ios-hint">
-                  <span className="feria-banner__ios-icon">📤</span>
-                  <p className="feria-banner__ios-text">
-                    Tocá el ícono de <strong>Compartir</strong> y luego{' '}
-                    <strong>"Añadir a la pantalla de inicio"</strong>
+                <p className="fb-sub">Instalala en segundos:</p>
+                <div className="fb-steps">
+                  <p className="fb-step">
+                    <span className="fb-step-num">1</span>
+                    Tocá los <strong>3 puntitos ⋮</strong> arriba a la derecha
+                  </p>
+                  <p className="fb-step">
+                    <span className="fb-step-num">2</span>
+                    Elegí <strong>"Añadir a pantalla de inicio"</strong>
+                  </p>
+                  <p className="fb-step">
+                    <span className="fb-step-num">3</span>
+                    Tocá <strong>"Instalar"</strong> y listo 🎉
                   </p>
                 </div>
               </>
             )}
+
+            {/* Caso C: iOS Safari */}
+            {showIOSInstructions && (
+              <>
+                <p className="fb-sub">Instalala en segundos:</p>
+                <div className="fb-steps">
+                  <p className="fb-step">
+                    <span className="fb-step-num">1</span>
+                    Tocá el ícono <strong>Compartir 📤</strong> abajo en Safari
+                  </p>
+                  <p className="fb-step">
+                    <span className="fb-step-num">2</span>
+                    Elegí <strong>"Añadir a pantalla de inicio"</strong>
+                  </p>
+                  <p className="fb-step">
+                    <span className="fb-step-num">3</span>
+                    Tocá <strong>"Añadir"</strong> y listo 🎉
+                  </p>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       </div>
