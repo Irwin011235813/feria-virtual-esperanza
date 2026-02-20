@@ -29,6 +29,10 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app); // ✅ MUY IMPORTANTE
+// En firebase.js, después de export const auth = getAuth(app);
+import { browserLocalPersistence, setPersistence } from 'firebase/auth';
+
+setPersistence(auth, browserLocalPersistence);
 
 // --- UPDATE PRODUCTO ---
 export const updateProducto = async (productId, updates) => {
