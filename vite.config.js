@@ -11,6 +11,23 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-    host: true // Importante para testing en mobile
+    host: true
+  },
+
+  build: {
+    minify: 'esbuild',         // ← soluciona "Minify JavaScript"
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separa Firebase en su propio chunk
+          'firebase-app':       ['firebase/app'],
+          'firebase-auth':      ['firebase/auth'],
+          'firebase-firestore': ['firebase/firestore'],
+          'firebase-storage':   ['firebase/storage'],
+          // Separa React en su propio chunk
+          'react-vendor':       ['react', 'react-dom', 'react-router-dom'],
+        }
+      }
+    }
   }
 });
