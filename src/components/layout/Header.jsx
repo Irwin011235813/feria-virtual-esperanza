@@ -21,6 +21,7 @@ const Header = ({ user, onCartClick, onOpenProduct }) => {
         
         <button 
           onClick={() => navigate("/")}
+          aria-label="Ir al inicio - Feria Virtual Esperanza"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
           <div className="bg-green-600 p-2 rounded-lg">
